@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "classy"
+version = "0.1.0"
+description = "A Python package used to make networking easier"
+authors = [{ name="mk-2015", email="allison-burgers@dictatorship.emploicemuswashans.com" }]
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = []
