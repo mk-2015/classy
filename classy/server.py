@@ -8,6 +8,20 @@ import classy.logger
 endpoints = []
 server = []
 
+def endpoint_OPT(path):
+    def decorator(func):
+        func.http_method = 'OPTIONS'
+        func.path = path
+        endpoints.append(
+            {
+                "function": function,
+                "http_method": 'OPTIONS',
+                "path": path
+            }
+        )
+        print(f"Registered GET endpoint: {path}")
+    return function
+
 def endpoint_GET(path):
     def decorator(func):
         func.http_method = 'GET'
@@ -78,7 +92,46 @@ def endpoint_PATCH(path):
         print(f"Registered PATCH endpoint: {path}")
     return function
 
+def error_handler_add(intid, code):
+    def decorator(func):
+        func.error_id = intid
+        func.error_code = code
+        endpoints.append(
+            {
+                "spec": True,
+                "code_handler": function,
+                "http.error": code,
+                "id-loc": 
+                {
+                    "integer-id": intid
+                }
+            }
+        )
+        print(f"Registered error hander for code: {code}")
+    return function
+
+class RequestException(Exception):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        
+       print(f"----------------------------")
+       print(f" Ex: ServerExecption")
+       print(f" Error: {code}")
+       print(f" Message: {message} ")
+       print(f"----------------------------")
+
 class RequestHandler(http.server.BaseHTTPRequestHandler):
+    def send_error(self, code, reason):
+        for endpoint in endpoints:
+            if endpoint['spec'] == True and endpoint['http.error'] == code:
+                    endpoint['code_handler'](self, reason) 
+            else:
+                continue
+        else:
+            raise RequestException(-1, f"No error handler found for: {code} ")
+
     def do_GET(self):
         self.handle_request('GET')
 
@@ -94,18 +147,20 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
     def do_PATCH(self):
         self.handle_request('PATCH')
 
+    def do_OPTIONS(self):
+        self.handle_request('OPTIONS')
+
     def handle_request(self, method):
         for endpoint in endpoints:
             if endpoint['http_method'] == method and endpoint['path'] == self.path:
                 response = endpoint['function'](self)
-                self.send_response(200)
+                self.send_response(response['code'].int())
                 self.end_headers()
-                self.wfile.write(response.encode())
+                self.wfile.write(response['response'].encode())
                 return
             
         self.send_response(404)
         self.end_headers()
-        self.wfile.write(b'Endpoint not found')
 
 def start(host="", port=8080, use_ssl=False, keyfile='key.pem', certfile='cert.pem'):
     print("Starting server...")
