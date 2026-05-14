@@ -1,5 +1,7 @@
 import colorama
 
+colorama.init()
+
 def tokenize(string):
     '''
     "/command set value" -> ["/command", "set", "value"]
@@ -13,7 +15,6 @@ def detokenize(tokens):
     return " ".join(tokens)
 
 def log(message, level="INFO"):
-    colorama.init()
     if level == "INFO":
         print(f"{colorama.Fore.GREEN}[INFO]{colorama.Style.RESET_ALL} {message}")
     elif level == "WARNING":
