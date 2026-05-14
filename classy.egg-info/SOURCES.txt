@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-classy/__init__.py
-classy/logger.py
-classy/server.py
-classy.egg-info/PKG-INFO
-classy.egg-info/SOURCES.txt
-classy.egg-info/dependency_links.txt
-classy.egg-info/top_level.txt
