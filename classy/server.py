@@ -162,22 +162,32 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
-def start(host="", port=8080, use_ssl=False, keyfile='key.pem', certfile='cert.pem'):
+def start(host: str = "", port: int = 8080, use_ssl: bool = False, keyfile: str = 'key.pem', certfile: str = 'cert.pem'):
     print("Starting server...")
-    with socketserver.TCPServer((host, port), RequestHandler) as httpd:
+    
+    httpd = socketserver.ThreadingTCPServer((host, port), RequestHandler, bind_and_activate=False)
 
+    try:
         if use_ssl:
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
             httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)
 
-        server.append(
-            {
-                "server": httpd,
-                "host": host,
-                "port": port,
-                "endpoints": endpoints
-            }
-        )
-        print(f"Server started on {host}:{port}, SSL: {use_ssl and 'Yes' or 'No'}")
+        httpd.server_bind()
+        httpd.server_activate()
+
+        server.append({
+            "server": httpd,
+            "host": host,
+            "port": port,
+            "endpoints": endpoints
+        })
+        
+        ssl_status = "Yes" if use_ssl else "No"
+        print(f"Server started on {host or '0.0.0.0'}:{port}, SSL: {ssl_status}")
+        
         httpd.serve_forever()
+
+    except Exception as e:
+        httpd.server_close()
+        raise e
