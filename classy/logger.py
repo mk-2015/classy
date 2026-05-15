@@ -1,7 +1,5 @@
 import colorama
 
-colorama.init()
-
 def tokenize(string):
     '''
     "/command set value" -> ["/command", "set", "value"]
