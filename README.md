@@ -6,18 +6,43 @@
 - Webserver (https://, http://)
 - Json (WIP)
 - Error handling (WIP)
-- database intergation with firebase & mysql, postgres (WIP, intended for the future)
+- database intergation & mysql, postgres
 - ... And more features that are coming sooner or later ...
 
 ## SSL Support
 - Yes there is ssl support to use ssl you have to do this:
 ```python
-import classy
+from classy import server
 
-classy.start(use_ssl=True, keyfile="keyfile.pem", certfile="certfile.pem")
+start(use_ssl=True, keyfile="keyfile.pem", certfile="certfile.pem")
 ```
 - You will need to generate 2 pem files using openssl.
 
+## Database
+```python
+from classy import database
+
+config = {
+    "host": "localhost",
+    "user": "root",
+    "password": "your_secure_password",
+    "database": "your_application_db"
+}
+
+try:
+    db = Db(etype="mysql", config=config)
+    sql = "DELETE FROM USERS WHERE name = %s"
+    target_user = ("Alice",)
+    db.query(sql, target_user)
+    db.commit()
+    print("User Alice successfully deleted.")
+except Exception as error:
+    print(f"Framework Database Error during execution: {error}")
+finally:
+    if 'db' in locals():
+        db.close()
+
+```
 
 # Contributing
 - Any contributions to this project are warmly welcomed

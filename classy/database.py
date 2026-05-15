@@ -1,49 +1,43 @@
-import sqlite3 as sqlite
 import os
 
-def db_init(sqltype="sqlite", dbpath="./database.db"):
-    if not os.path.isfile(dbpath) and sqltype == "sqlite":
-       raise FileNotFoundError(f"Database file: {dbpath} not found.")
-    
-    if sqltype == "sqlite":
-        connection = sqlite.connect(dbpath)
-        cursor = connection.cursor()
+class Db:
+    def __init__(self, etype="sqlite", connection_string=None, config=None):
+        self.etype = etype.lower()
+        self.conn = None
+        self.cursor = None
         
-        sqlobject = {
-            "type": sqltype,
-            "db-path": dbpath,
-            "local": 
-            {
-                "connection": connection,
-                "cursor": cursor
-            }
-        }
-        
-        return sqlobject
-    else:
-        return { "error": True } 
-        
-def db_execute(sqlobj, execstring, params=None, force=0):
-    if sqlobj.get('type') == "sqlite":
-        if params is not None:
-            data = sqlobj['local']['cursor'].execute(execstring, params).fetchall()
-        else:
-            data = sqlobj['local']['cursor'].execute(execstring).fetchall()
+        if self.etype == "sqlite":
+            import sqlite3
+            if connection_string and not os.path.isfile(connection_string):
+                raise FileNotFoundError(f"SQLite file not found: {connection_string}")
+            self.conn = sqlite3.connect(connection_string or ":memory:")
             
-        if force == 1: 
-            sqlobj['local']['connection'].commit()
-        return data
-    
-    return { "error": True }
+        elif self.etype == "postgres":
+            import psycopg2
+            self.conn = psycopg2.connect(**config)
+            
+        elif self.etype == "mysql":
+            import mysql.connector
+            self.conn = mysql.connector.connect(**config)
+            
+        self.cursor = self.conn.cursor()
 
-def db_commit(sqlobj, name="test", commitname="Update Database"):
-    print(f"{name} has commited to {sqlobj['type']} with commit being: {commitname}")
-    if sqlobj['type'] == "sqlite":
-        sqlobj['local']['connection'].commit()
+    def query(self, sql_string, params=None, fetch_all=True):
+        if self.etype == "postgres":
+            sql_string = sql_string.replace("?", "%s")
+            
+        self.cursor.execute(sql_string, params or ())
+        
+        if self.cursor.description:
+            return self.cursor.fetchall() if fetch_all else self.cursor.fetchone()
+        return None
 
-def db_close(sqlobj):
-    if sqlobj['type'] == "sqlite":
-        sqlobj['local']['connection'].commit()
-        sqlobj['local']['connection'].close()
-        sqlobj.clear()
-    return { "error": True }
+    def commit(self):
+        if self.conn:
+            self.conn.commit()
+
+    def close(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.conn:
+            self.conn.close()
