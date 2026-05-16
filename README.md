@@ -6,7 +6,9 @@
 - Webserver (https://, http://)
 - Json (WIP)
 - Error handling (WIP)
-- database intergation & mysql, postgres
+- database intergation & mysql, postgres:
+	* Async
+	* AMRQ (Async Multiple Request Query)
 - ... And more features that are coming sooner or later ...
 
 ## SSL Support
@@ -19,30 +21,92 @@ start(use_ssl=True, keyfile="keyfile.pem", certfile="certfile.pem")
 - You will need to generate 2 pem files using openssl.
 
 ## Database
-```python
-from classy import database
+* Example: Delete Alice user from MyApp_Db Database:
+	```python
+	from classy.database import Db
 
-config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "your_secure_password",
-    "database": "your_application_db"
-}
+	config = {
+		"host": "localhost",
+		"port": 9880,
+		"user": "root",
+		"password": "1234567890",
+		"database": "MyApp_Db"
+	}
 
-try:
-    db = Db(etype="mysql", config=config)
-    sql = "DELETE FROM USERS WHERE name = %s"
-    target_user = ("Alice",)
-    db.query(sql, target_user)
-    db.commit()
-    print("User Alice successfully deleted.")
-except Exception as error:
-    print(f"Framework Database Error during execution: {error}")
-finally:
-    if 'db' in locals():
-        db.close()
+	try:
+		db = Db(
+			etype="mysql",
+			config=config
+		)
 
-```
+		await db.connect()
+
+		sql = "DELETE FROM users WHERE name = %s"
+
+		target_user = ("Alice",)
+
+		await db.query(
+			sql,
+			target_user,
+			autocommit=True
+		)
+		print("User Alice successfully deleted.")
+
+	except Exception as error:
+		print(f"Framework Database Error, during execution: {error}")
+	finally:
+		if 'db' in locals():
+			await db.close()
+	```
+	* Async code
+	* Autocommiting and rollbacks
+* Example: Use AMRQ:
+	```python
+	results = await db.query_amrq([
+		[
+			"SELECT * FROM users"
+		],
+
+		[
+			"SELECT * FROM posts WHERE id = $1",
+			(1,)
+		],
+
+		[
+			"SELECT * FROM comments"
+		]
+	])
+	```
+	* Get multiple results in one function!
+	* result:
+		```result
+		[
+			[
+				(1, "Alice"),
+				(2, "Bob")
+			],
+
+			[
+				(1, "Hello"),
+				(2, "World")
+			],
+
+			[
+				(1, "Nice post")
+			]
+		]
+		```
+
+# Questions
+
+* 1. What is AMRQ?
+	* => It is a feature in the database module of classy used to get multiple results at the same time
+
+* 2. Why use classes for Db?
+	* => We use classes for Db because instead of passing in multiple varibles for it to work, you dont even need to pass in the conn or cursor varibles. You just pass in the query!
+
+* 3. Why do REST and Static file serving?
+	* => We integrate REST and Static file serving because instead of choosing two Static file serving, and REST Frameworks and having to intertwine them you can just do them both
 
 # Contributing
 - Any contributions to this project are warmly welcomed
