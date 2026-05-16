@@ -20,6 +20,50 @@ start(use_ssl=True, keyfile="keyfile.pem", certfile="certfile.pem")
 ```
 - You will need to generate 2 pem files using openssl.
 
+## Use
+- start a server:
+```python
+import os
+import json
+from aiohttp import web
+import classy 
+
+config = {
+    "host": "localhost",
+    "port": 9880,
+    "user": "root",
+    "password": os.getenv("SQLpassword"),
+    "database": "user"
+}
+
+Database = classy.Db(etype="mysql", config=config)
+
+async def init_app():
+    await Database.connect()
+    app = web.Application()
+    return app
+
+@server.endpoint_POST("/api/user")
+async def userget(request):
+    headers = {
+        "X-User": "User"
+    }
+    
+    user_data = await Database.query(
+        "SELECT * FROM users WHERE ip_address = ?;", 
+        params=(request.remote,)
+    )
+    
+    return web.Response(
+        text=json.dumps(user_data),
+        headers=headers,
+        content_type="application/json"
+    )
+
+if __name__ == "__main__":
+    start(default_folder="public")
+```
+
 ## Database
 * Example: Delete Alice user from MyApp_Db Database:
 	```python
