@@ -6,9 +6,9 @@
 - Webserver (https://, http://)
 - Json (WIP)
 - Error handling (WIP)
-- database intergation & mysql, postgres:
-	* Async
-	* AMRQ (Async Multiple Request Query)
+- ***database intergation & mysql, postgres:***
+	- *Async*
+	- **AMRQ** *(Async Multiple Request Query)*
 - ... And more features that are coming sooner or later ...
 
 ## SSL Support
@@ -25,8 +25,10 @@ start(use_ssl=True, keyfile="keyfile.pem", certfile="certfile.pem")
 ```python
 import os
 import json
+import asyncio
 from aiohttp import web
-import classy 
+import classy.server
+import classy.database
 
 config = {
     "host": "localhost",
@@ -36,21 +38,16 @@ config = {
     "database": "user"
 }
 
-Database = classy.Db(etype="mysql", config=config)
+Database = classy.database.Db(etype="mysql", config=config)
 
-async def init_app():
-    await Database.connect()
-    app = web.Application()
-    return app
-
-@server.endpoint_POST("/api/user")
+@classy.server.endpoint_POST("/api/user")
 async def userget(request):
     headers = {
         "X-User": "User"
     }
     
     user_data = await Database.query(
-        "SELECT * FROM users WHERE ip_address = ?;", 
+        "SELECT * FROM users WHERE ip_address = %s;", 
         params=(request.remote,)
     )
     
@@ -60,27 +57,31 @@ async def userget(request):
         content_type="application/json"
     )
 
+async def main():
+    await Database.connect()
+    classy.server.start(default_folder="public")
+
 if __name__ == "__main__":
-    start(default_folder="public")
+    asyncio.run(main())
 ```
 
 ## client && Microservice communication with HTTP(S)
 * use webresource function in classy.client:
 ```python
-import classy
+import classy.client
 
-status, text = classy.client.webresource("GET", "http://transcat.stripe-middle_end-server.local/current")
+status, text = await classy.client.webresource("GET", "http://transcat.stripe-middle_end-server.local/current")
 
-# ... Code ...
+# ... Execute your business logic ...
 
-# at the end
+# end
 classy.client.close_webresource_pool()
-Db.close()
 ```
 
 ## Database
 * Example: Delete Alice user from MyApp_Db Database:
 	```python
+	import asyncio
 	from classy.database import Db
 
 	config = {
@@ -91,30 +92,24 @@ Db.close()
 		"database": "MyApp_Db"
 	}
 
-	try:
-		db = Db(
-			etype="mysql",
-			config=config
-		)
+	async def run():
+		try:
+			db = Db(etype="mysql", config=config)
+			await db.connect()
 
-		await db.connect()
+			sql = "DELETE FROM users WHERE name = %s"
+			target_user = ("Alice",)
 
-		sql = "DELETE FROM users WHERE name = %s"
+			await db.query(sql, target_user, autocommit=True)
+			print("User Alice successfully deleted.")
 
-		target_user = ("Alice",)
+		except Exception as error:
+			print(f"Framework Database Error during execution: {error}")
+		finally:
+			if 'db' in locals():
+				await db.close()
 
-		await db.query(
-			sql,
-			target_user,
-			autocommit=True
-		)
-		print("User Alice successfully deleted.")
-
-	except Exception as error:
-		print(f"Framework Database Error, during execution: {error}")
-	finally:
-		if 'db' in locals():
-			await db.close()
+	asyncio.run(run())
 	```
 	* Async code
 	* Autocommiting and rollbacks

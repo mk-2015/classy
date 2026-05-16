@@ -36,7 +36,7 @@ async def webresource(
     json_response: bool = False,
     headers: Optional[Dict[str, str]] = None, 
     payload: Any = None,
-    use_ssl: bool = True, 
+    use_ssl: bool = False, 
     keyfile: Optional[str] = "keyfile.pem", 
     certfile: Optional[str] = "certfile.pem"
 ) -> Tuple[int, Any]:
