@@ -74,7 +74,7 @@ status, text = classy.client.webresource("GET", "http://transcat.stripe-middle_e
 # ... Code ...
 
 # at the end
-close_webresource_pool()
+classy.client.close_webresource_pool()
 Db.close()
 ```
 
