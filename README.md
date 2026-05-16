@@ -78,6 +78,48 @@ status, text = await classy.client.webresource("GET", "http://transcat.stripe-mi
 classy.client.close_webresource_pool()
 ```
 
+## Auth
+```python
+import classy
+
+def auth_func(request):
+	# ... code ...
+	if authkeyValidated:
+		return True # Let user pass
+	return False # Block user
+
+@server.endpoint_POST("/api/v3/user-authed")
+@auth.require_auth(auth_func)
+def userauthed(request):
+	return web.Response(
+		text="You shall pass!"
+	)
+```
+
+* There are many authentication ways but we recommend to use any of the three AItn, EItn or OAuth
+
+## Input sanatiazation
+```python
+import classy
+from aiohttp import web
+
+def auth_func(request):
+	# ... code ...
+	if authkeyValidated:
+		return True # Let user pass
+	return False # Block user
+
+@server.endpoint_POST("/api/v3/user-authed")
+@auth.require_auth(auth_func)
+@xss.preventv()
+def userauthed(request):
+	return web.Response(
+		text="You shall pass!"
+	)
+```
+
+* the preventv decorator prevents any XSS injection attempts
+
 ## Database
 * Example: Delete Alice user from MyApp_Db Database:
 	```python
