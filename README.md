@@ -64,6 +64,20 @@ if __name__ == "__main__":
     start(default_folder="public")
 ```
 
+## client && Microservice communication with HTTP(S)
+* use webresource function in classy.client:
+```python
+import classy
+
+status, text = classy.client.webresource("GET", "http://transcat.stripe-middle_end-server.local/current")
+
+# ... Code ...
+
+# at the end
+close_webresource_pool()
+Db.close()
+```
+
 ## Database
 * Example: Delete Alice user from MyApp_Db Database:
 	```python
