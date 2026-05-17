@@ -132,17 +132,29 @@ class Db:
 
     async def query_amrq(
         self,
-        queries: List[Tuple[str, Union[tuple, list]]],
+        queries: Dict[str, Union[str, Tuple[str], Tuple[str, Union[tuple, list]]]],
         fetch_all: bool = True,
         autocommit: bool = False,
         rollback: bool = True,
         return_exceptions: bool = False
-    ) -> List[Any]:
+    ) -> Dict[str, Any]:
+        labels = list(queries.keys())
         tasks = []
-        for query_data in queries:
-            sql = query_data[0]
-            params = query_data[1] if len(query_data) > 1 else ()
+        
+        for label in labels:
+            query_data = queries[label]
             
+            if isinstance(query_data, str):
+                sql = query_data
+                params = ()
+            elif isinstance(query_data, (tuple, list)):
+                if not query_data:
+                    continue
+                sql = query_data[0]
+                params = query_data[1] if len(query_data) > 1 else ()
+            else:
+                raise TypeError(f"Query under label '{label}' must be a string or sequence pair.")
+
             tasks.append(
                 self.query(
                     sql_string=sql,
@@ -152,7 +164,10 @@ class Db:
                     rollback=rollback
                 )
             )
-        return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
+            
+        raw_results = await asyncio.gather(*tasks, return_exceptions=return_exceptions)
+        
+        return dict(zip(labels, raw_results))
 
     async def close(self):
         if self.etype == "sqlite":

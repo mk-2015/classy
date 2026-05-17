@@ -157,39 +157,29 @@ def userauthed(request):
 	* Autocommiting and rollbacks
 * Example: Use AMRQ:
 	```python
-	results = await db.query_amrq([
-		[
-			"SELECT * FROM users"
-		],
-
-		[
-			"SELECT * FROM posts WHERE id = $1",
-			(1,)
-		],
-
-		[
-			"SELECT * FROM comments"
-		]
-	])
+	results = await db.query_amrq({
+    	"users": "SELECT * FROM users",
+    	"target_post": ("SELECT * FROM posts WHERE id = $1", (1,)),
+    	"comments": ["SELECT * FROM comments"]
+	})
 	```
 	* Get multiple results in one function!
 	* result:
 		```result
-		[
-			[
-				(1, "Alice"),
+  		{
+      		"users": [
+				(1, "Alice"), 
 				(2, "Bob")
 			],
-
-			[
-				(1, "Hello"),
-				(2, "World")
+      		
+			"target_post": [
+				(1, "Hello World")
 			],
-
-			[
+      		
+			"comments": [
 				(1, "Nice post")
 			]
-		]
+  		}
 		```
 
 ## Rate limiter
