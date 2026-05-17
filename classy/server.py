@@ -5,7 +5,7 @@ from sys import path
 import colorama
 import inspect
 from aiohttp import request, request, web
-from datetime import datetime
+from datetime import datetime, time
 
 endpoints = []
 error_handlers = {}
@@ -195,6 +195,22 @@ async def start(
     keyfile: str = "key.pem"
 ):
     global _default_folder
+
+    async def ratelimit_cleanup_task():
+        from . import rate
+        while True:
+            await asyncio.sleep(60)
+            now = time.time()
+            cache = rate._rate_limit_cache
+            to_delete = [ip for ip, (_, last_check) in cache.items() if now - last_check > 3600]
+            
+            for ip in to_delete:
+                try:
+                    del cache[ip]
+                except KeyError:
+                    pass
+
+    asyncio.create_task(ratelimit_cleanup_task(), name="ClassyRateLimitGarbageCollector")
 
     app = web.Application()
 

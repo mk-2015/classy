@@ -9,7 +9,9 @@
 - ***database intergation & mysql, postgres:***
 	- *Async*
 	- **AMRQ** *(Async Multiple Request Query)*
-- ... And more features that are coming sooner or later ...
+- Rate limiter
+- Authentication
+- XSS/CSP
 
 ## SSL Support
 - Yes there is ssl support to use ssl you have to do this:
@@ -20,7 +22,7 @@ start(use_ssl=True, keyfile="keyfile.pem", certfile="certfile.pem")
 ```
 - You will need to generate 2 pem files using openssl.
 
-## Use
+## Create your own server!
 - start a server:
 ```python
 import os
@@ -65,7 +67,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## client && Microservice communication with HTTP(S)
+## Server && Microservice communication with HTTP(S)
 * use webresource function in classy.client:
 ```python
 import classy.client
@@ -78,7 +80,7 @@ status, text = await classy.client.webresource("GET", "http://transcat.stripe-mi
 classy.client.close_webresource_pool()
 ```
 
-## Auth
+## Authentication
 ```python
 import classy
 
@@ -96,7 +98,7 @@ def userauthed(request):
 	)
 ``` 
 
-## Input sanatiazation
+## Input sanitization
 ```python
 import classy
 from aiohttp import web
@@ -109,7 +111,7 @@ def auth_func(request):
 
 @server.endpoint_POST("/api/v3/user-authed")
 @auth.require_auth(auth_func)
-@xss.preventv() # Sanatizes the body into request['sanitized_data']
+@xss.preventv() # Sanatizes the body into request['sanitized_data'], adds XSS,CSP Headers automatically
 def userauthed(request):
 	return web.Response(
 		text="You shall pass!"
@@ -189,6 +191,32 @@ def userauthed(request):
 			]
 		]
 		```
+
+## Rate limiter
+
+* The ratelimiter uses 'Cost Based Token Bucket RateLimiter' Method
+* Use it via decorators:
+```python
+from classy.rate import rate_limit
+from aiohttp import web
+import asyncio
+
+MAX_TOKENS = 150
+MAX_REFILL_PERIOD = 10
+
+@endpoint_GET("/api/make-system-status-report")
+@rate_limit(MAX_TOKENS, MAX_REFILL_PERIOD, minus_token_amount=60)
+async def make_system_report(request):
+	# Do the report thing
+
+	return web.Response(
+		text=jsontext,
+		content_type="application/json"
+	)
+
+
+asyncio.run(start())
+```
 
 # Questions
 
