@@ -28,28 +28,31 @@ def route(method: str, path: str):
 def endpoint_GET(path):
     return route("GET", path)
 
-
 def endpoint_POST(path):
     return route("POST", path)
-
 
 def endpoint_PUT(path):
     return route("PUT", path)
 
+def endpoint_PATCH(path):
+    return route("PATCH", path)
 
 def endpoint_DELETE(path):
     return route("DELETE", path)
 
-
-def endpoint_PATCH(path):
-    return route("PATCH", path)
-
+def endpoint_HEAD(path):
+    return route("HEAD", path)
 
 def endpoint_OPTIONS(path):
     return route("OPTIONS", path)
 
 def register_error(code: int):
     def decorator(func):
+        if code in error_handlers:
+            raise RuntimeError(
+                f"Error handle for {code} is already registered"
+            )
+            
         error_handlers[code] = func
 
         print(f"Registered error handler for: {code}")

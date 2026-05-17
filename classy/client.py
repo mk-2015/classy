@@ -3,19 +3,18 @@ from typing import Any, Dict, Tuple, Optional
 from aiohttp import ClientSession, TCPConnector
 
 _session_cache: Dict[Tuple[bool, Optional[str], Optional[str]], ClientSession] = {}
-_connector_cache: Dict[Tuple[bool, Optional[str], Optional[str]], TCPConnector] = {}
 
 async def get_session(
     use_ssl: bool, 
     keyfile: Optional[str], 
     certfile: Optional[str]
 ) -> ClientSession:
-    global _session_cache, _connector_cache
+    global _session_cache
     
     cache_key = (use_ssl, keyfile, certfile)
     session = _session_cache.get(cache_key)
     
-    if session is None or session.closed:
+    if session is None or session.closed or session.loop.is_closed():
         ssl_context = False
         if use_ssl:
             ssl_context = ssl.create_default_context()
@@ -23,9 +22,8 @@ async def get_session(
                 ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
         
         connector = TCPConnector(ssl=ssl_context, limit=100)
-        session = ClientSession(connector=connector)
         
-        _connector_cache[cache_key] = connector
+        session = ClientSession(connector=connector)
         _session_cache[cache_key] = session
         
     return session
@@ -65,13 +63,13 @@ async def webresource(
         return response.status, await response.json()
 
 async def close_webresource_pool():
-    global _session_cache, _connector_cache
-    for session in _session_cache.values():
+    global _session_cache
+    
+    for session in list(_session_cache.values()):
         if session and not session.closed:
-            await session.close()
-    for connector in _connector_cache.values():
-        if connector and not connector.closed:
-            await connector.close()
-            
+            try:
+                await session.close()
+            except Exception as e:
+                print(f"Error closing session during pool teardown: {e}")
+                
     _session_cache.clear()
-    _connector_cache.clear()

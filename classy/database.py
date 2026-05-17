@@ -1,216 +1,164 @@
 import asyncio
+import os
+from typing import Any, List, Tuple, Union, Dict, Callable, Optional
 
 
 class Db:
     def __init__(
         self,
-        etype="sqlite",
-        connection_string=None,
-        config=None
+        etype: str = "sqlite",
+        connection_string: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None
     ):
-
         self.etype = etype.lower()
-
-        self.connection_string = (
-            connection_string or ":memory:"
-        )
-
+        self.connection_string = connection_string or ":memory:"
         self.config = config or {}
-
         self.pool = None
 
     async def connect(self):
         if self.etype == "sqlite":
-
             import aiosqlite
-
             self.aiosqlite = aiosqlite
-
-            self.pool = await aiosqlite.connect(
-                self.connection_string
-            )
-
+            self.pool = await aiosqlite.connect(self.connection_string)
+            await self.pool.execute("PRAGMA journal_mode=WAL;")
+            
         elif self.etype == "postgres":
-
             import asyncpg
-
             self.asyncpg = asyncpg
-
-            self.pool = await asyncpg.create_pool(
-                **self.config
-            )
+            self.pool = await asyncpg.create_pool(**self.config)
 
         elif self.etype == "mysql":
-
             import aiomysql
-
             self.aiomysql = aiomysql
-
-            self.pool = await aiomysql.create_pool(
-                **self.config
-            )
-
+            self.pool = await aiomysql.create_pool(**self.config)
         else:
-            raise ValueError(
-                f"Unsupported database type: {self.etype}"
-            )
+            raise ValueError(f"Unsupported database type: {self.etype}")
 
-    async def query(self, sql_string, params=None, fetch_all=True, autocommit=False, rollback=True):
+    def _normalize_query(self, sql_string: str, params: Union[tuple, list]) -> Tuple[str, tuple]:
+        if self.etype != "postgres":
+            return sql_string, tuple(params)
+        
+        new_sql = []
+        param_index = 1
+        for char in sql_string:
+            if char == '?':
+                new_sql.append(f"${param_index}")
+                param_index += 1
+            else:
+                new_sql.append(char)
+        return "".join(new_sql), tuple(params)
 
-        params = params or ()
+    async def query(
+        self, 
+        sql_string: str, 
+        params: Optional[Union[tuple, list]] = None, 
+        fetch_all: bool = True, 
+        autocommit: bool = False, 
+        rollback: bool = True
+    ) -> Any:
+        raw_params = params or ()
+        sql_string, normalized_params = self._normalize_query(sql_string, raw_params)
 
         if self.etype == "sqlite":
             try:
-
-                cursor = await self.pool.execute(
-                    sql_string,
-                    params
-                )
-
+                cursor = await self.pool.execute(sql_string, normalized_params)
+                
                 if autocommit:
                     await self.pool.commit()
 
                 if cursor.description:
-
-                    if fetch_all:
-                        result = await cursor.fetchall()
-                    else:
-                        result = await cursor.fetchone()
-
+                    result = await cursor.fetchall() if fetch_all else await cursor.fetchone()
                     await cursor.close()
-
                     return result
-
+                
                 await cursor.close()
                 return None
-
             except Exception as exception:
                 if rollback:
                     try:
                         await self.pool.rollback()
-
-                    except Exception as rollback_error:
-
-                        print(f"Rollback failed: {rollback_error}")
+                    except Exception as rb_err:
+                        print(f"SQLite Rollback failed: {rb_err}")
                 raise exception
-
+            
         elif self.etype == "postgres":
             async with self.pool.acquire() as conn:
                 transaction = conn.transaction()
-
                 await transaction.start()
-
                 try:
-                    if sql_string.strip().lower().startswith(
-                        "select"
-                    ):
-                        
-                        rows = await conn.fetch(
-                            sql_string,
-                            *params
-                        )
-
+                    is_select = sql_string.strip().lower().startswith("select")
+                    
+                    if is_select:
+                        rows = await conn.fetch(sql_string, *normalized_params)
                         if fetch_all:
-                            result = [
-                                dict(row)
-                                for row in rows
-                            ]
+                            result = [dict(row) for row in rows]
                         else:
-                            result = (
-                                dict(rows[0])
-                                if rows else None
-                            )
+                            result = dict(rows[0]) if rows else None
                     else:
-                        result = await conn.execute(
-                            sql_string,
-                            *params
-                        )
-                        
+                        result = await conn.execute(sql_string, *normalized_params)
+                    
                     if autocommit:
                         await transaction.commit()
+                    else:
+                        await transaction.commit()
+                        
                     return result
-
                 except Exception as exception:
-
                     if rollback:
                         await transaction.rollback()
-
                     raise exception
-
+                
         elif self.etype == "mysql":
             async with self.pool.acquire() as conn:
-                async with conn.cursor() as cursor:
+                async with conn.cursor(self.aiomysql.cursors.DictCursor) as cursor:
                     try:
-                        await cursor.execute(
-                            sql_string,
-                            params
-                        )
+                        mysql_sql = sql_string.replace('?', '%s')
+                        await cursor.execute(mysql_sql, normalized_params)
                         
                         if autocommit:
                             await conn.commit()
-                        
+                            
                         if cursor.description:
-                            if fetch_all:
-                                result = (
-                                    await cursor.fetchall()
-                                )
-                            else:
-                                result = (
-                                    await cursor.fetchone()
-                                )
+                            result = await cursor.fetchall() if fetch_all else await cursor.fetchone()
                             return result
-                        
                         return None
                     except Exception as exception:
                         if rollback:
                             try:
                                 await conn.rollback()
-                            except Exception as rollback_error:
-                                print(
-                                    f"Rollback failed: "
-                                    f"{rollback_error}"
-                                )
-
+                            except Exception as rb_err:
+                                print(f"MySQL Rollback failed: {rb_err}")
                         raise exception
 
     async def query_amrq(
         self,
-        queries,
-        fetch_all=True,
-        autocommit=False,
-        rollback=True,
-        return_exceptions=False
-    ):
-
+        queries: List[Tuple[str, Union[tuple, list]]],
+        fetch_all: bool = True,
+        autocommit: bool = False,
+        rollback: bool = True,
+        return_exceptions: bool = False
+    ) -> List[Any]:
         tasks = []
-
         for query_data in queries:
             sql = query_data[0]
-
-            params = ()
-
-            if len(query_data) > 1:
-                params = query_data[1]
-
+            params = query_data[1] if len(query_data) > 1 else ()
+            
             tasks.append(
                 self.query(
-                    sql,
+                    sql_string=sql,
                     params=params,
                     fetch_all=fetch_all,
                     autocommit=autocommit,
                     rollback=rollback
                 )
             )
-
-        return await asyncio.gather(
-            *tasks,
-            return_exceptions=return_exceptions
-        )
+        return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
 
     async def close(self):
-
         if self.etype == "sqlite":
             await self.pool.close()
-        else:
+        elif self.etype == "postgres":
+            await self.pool.close()
+        elif self.etype == "mysql":
             self.pool.close()
             await self.pool.wait_closed()

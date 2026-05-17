@@ -1,15 +1,9 @@
 import colorama
 
 def tokenize(string):
-    '''
-    "/command set value" -> ["/command", "set", "value"]
-    '''
     return string.split(" ")
 
 def detokenize(tokens):
-    '''
-    ["/command", "set", "value"] -> "/command set value"
-    '''
     return " ".join(tokens)
 
 def log(message, level="INFO"):

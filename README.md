@@ -94,9 +94,7 @@ def userauthed(request):
 	return web.Response(
 		text="You shall pass!"
 	)
-```
-
-* There are many authentication ways but we recommend to use any of the three AItn, EItn or OAuth
+``` 
 
 ## Input sanatiazation
 ```python
@@ -111,7 +109,7 @@ def auth_func(request):
 
 @server.endpoint_POST("/api/v3/user-authed")
 @auth.require_auth(auth_func)
-@xss.preventv()
+@xss.preventv() # Sanatizes the body into request['sanitized_data']
 def userauthed(request):
 	return web.Response(
 		text="You shall pass!"

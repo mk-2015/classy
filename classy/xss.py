@@ -19,7 +19,7 @@ def sanitize_input(data: Any) -> Any:
 def preventv(trusted_websites: str = ""):
     def decorator(handler: Callable[[web.Request], Any]):
         @wraps(handler)
-        async def wrapper(request: web.Request, *args, **kwargs)
+        async def wrapper(request: web.Request, *args, **kwargs):
             request["sanitized_data"] = {}
             
             if request.can_read_body and request.content_type == "application/json":
@@ -36,7 +36,7 @@ def preventv(trusted_websites: str = ""):
             response = await handler(request, *args, **kwargs)
             
             csp_sources = f" 'self' {trusted_websites}".strip()
-            response.headers["Content-Security-Policy"] = f"default-src{csp_sources}; object-src 'none';"
+            response.headers["Content-Security-Policy"] = f"default-src {csp_sources}; object-src 'none';"
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["X-XSS-Protection"] = "0"
             response.headers["X-Frame-Options"] = "DENY"
