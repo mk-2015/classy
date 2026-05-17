@@ -54,7 +54,8 @@ class Db:
         params: Optional[Union[tuple, list]] = None, 
         fetch_all: bool = True, 
         autocommit: bool = False, 
-        rollback: bool = True
+        rollback: bool = True,
+        retexpt: bool = False
     ) -> Any:
         raw_params = params or ()
         sql_string, normalized_params = self._normalize_query(sql_string, raw_params)
@@ -79,7 +80,11 @@ class Db:
                         await self.pool.rollback()
                     except Exception as rb_err:
                         print(f"SQLite Rollback failed: {rb_err}")
-                raise exception
+                        
+                        if not retexpt: raise exception
+
+                        if retexpt:
+                            return exception
             
         elif self.etype == "postgres":
             async with self.pool.acquire() as conn:
@@ -100,20 +105,23 @@ class Db:
                     if autocommit:
                         await transaction.commit()
                     else:
-                        await transaction.commit()
+                        await transaction.rollback()
                         
                     return result
                 except Exception as exception:
                     if rollback:
                         await transaction.rollback()
-                    raise exception
+                        if not retexpt: raise exception
+
+                        if retexpt:
+                            return exception
                 
         elif self.etype == "mysql":
             async with self.pool.acquire() as conn:
                 async with conn.cursor(self.aiomysql.cursors.DictCursor) as cursor:
                     try:
-                        mysql_sql = sql_string.replace('?', '%s')
-                        await cursor.execute(mysql_sql, normalized_params)
+                        exec_params = normalized_params if normalized_params else None
+                        await cursor.execute(sql_string, exec_params)
                         
                         if autocommit:
                             await conn.commit()
@@ -128,7 +136,10 @@ class Db:
                                 await conn.rollback()
                             except Exception as rb_err:
                                 print(f"MySQL Rollback failed: {rb_err}")
-                        raise exception
+                        if not retexpt: raise exception
+
+                        if retexpt:
+                            return exception
 
     async def query_amrq(
         self,
@@ -161,7 +172,8 @@ class Db:
                     params=params,
                     fetch_all=fetch_all,
                     autocommit=autocommit,
-                    rollback=rollback
+                    rollback=rollback,
+                    retexpt=return_exceptions
                 )
             )
             

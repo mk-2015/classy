@@ -1,50 +1,42 @@
 import asyncio
+from collections.abc import Callable
 import os
 import ssl
 from sys import path
+from typing import Callable
 import colorama
 import inspect
 from aiohttp import request, request, web
 from datetime import datetime, time
+from ._server_helper import compile_route_path
 
 endpoints = []
 error_handlers = {}
 
-def route(method: str, path: str):
-    def decorator(func):
+def route(method: str, path_template: str):
+    compiled_pattern, type_casters = compile_route_path(path_template)
+
+    def decorator(func: Callable):
         endpoints.append({
             "method": method.upper(),
-            "path": path,
+            "path_template": path_template,
+            "compiled_pattern": compiled_pattern,
+            "type_casters": type_casters,
             "handler": func
         })
 
-        print(f"Registered {method.upper()} endpoint: {path}")
-
+        print(f"Registered {method.upper()} endpoint: {path_template}")
         return func
-
     return decorator
 
 
-def endpoint_GET(path):
-    return route("GET", path)
-
-def endpoint_POST(path):
-    return route("POST", path)
-
-def endpoint_PUT(path):
-    return route("PUT", path)
-
-def endpoint_PATCH(path):
-    return route("PATCH", path)
-
-def endpoint_DELETE(path):
-    return route("DELETE", path)
-
-def endpoint_HEAD(path):
-    return route("HEAD", path)
-
-def endpoint_OPTIONS(path):
-    return route("OPTIONS", path)
+def endpoint_GET(path): return route("GET", path)
+def endpoint_POST(path): return route("POST", path)
+def endpoint_PUT(path): return route("PUT", path)
+def endpoint_PATCH(path): return route("PATCH", path)
+def endpoint_DELETE(path): return route("DELETE", path)
+def endpoint_HEAD(path): return route("HEAD", path)
+def endpoint_OPTIONS(path): return route("OPTIONS", path)
 
 def register_error(code: int):
     def decorator(func):
@@ -84,52 +76,65 @@ async def dispatcher(request: web.Request):
 
     for endpoint in endpoints:
 
-        if endpoint["method"] == method and endpoint["path"] == path:
-
-            handler = endpoint["handler"]
-
-            try:
-
-                if inspect.iscoroutinefunction(handler):
-                    result = await handler(request)
-                else:
-                    result = handler(request)
-
-                if isinstance(result, web.Response):
-                    return result
-
-                if isinstance(result, dict):
-
+        if endpoint["method"] == method:
+            match = endpoint["compiled_pattern"].match(path)
+            
+            if match:
+                handler = endpoint["handler"]
+                
+                raw_params = match.groupdict()
+                casted_kwargs = {}
+                
+                try:
+                    for param_name, raw_string_val in raw_params.items():
+                        caster_func = endpoint["type_casters"][param_name]
+                        casted_kwargs[param_name] = caster_func(raw_string_val)
+                except (ValueError, TypeError) as casting_error:
                     return web.json_response(
-                        result.get("response", {}),
-                        status=result.get("code", 200)
+                        {"error": "Invalid URL path parameter type format alignment"}, 
+                        status=400
                     )
 
-                return web.Response(
-                    text=str(result),
-                    status=200
-                )
+                try:
+                    if inspect.iscoroutinefunction(handler):
+                        result = await handler(request, **casted_kwargs)
+                    else:
+                        result = handler(request, **casted_kwargs)
 
-            except RequestException as e:
+                    if isinstance(result, web.Response):
+                        return result
 
-                if e.code in error_handlers:
-                    return await error_handlers[e.code](request, e)
+                    if isinstance(result, dict):
+                        return web.json_response(
+                            result.get("response", {}),
+                            status=result.get("code", 200)
+                        )
 
-                return web.Response(
-                    text=e.message,
-                    status=e.code
-                )
+                    return web.Response(
+                        text=str(result),
+                        status=200
+                    )
 
-            except Exception as e:
-                print("Internal Error:", e)
+                except RequestException as e:
 
-                if 500 in error_handlers:
-                    return await error_handlers[500](request, e)
+                    if e.code in error_handlers:
+                        return await error_handlers[e.code](request, e)
 
-                return web.Response(
-                    text="500 Internal Server Error",
-                    status=500
-                )
+                    return web.Response(
+                        text=e.message,
+                        status=e.code
+                    )
+
+                except Exception as e:
+                    print("Internal Error:", e)
+
+                    if 500 in error_handlers:
+                        return await error_handlers[500](request, e)
+
+                    return web.Response(
+                        text="500 Internal Server Error",
+                        status=500
+                    )
             
     clean_path = path.lstrip("/")
     local_path = os.path.abspath(os.path.join(_default_folder, clean_path))

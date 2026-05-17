@@ -11,6 +11,7 @@
 	- **AMRQ** *(Async Multiple Request Query)*
 - Rate limiter
 - Authentication
+- Schema for JSON (Java Script Object Notation)
 - XSS/CSP
 
 ## SSL Support
@@ -41,6 +42,16 @@ config = {
 }
 
 Database = classy.database.Db(etype="mysql", config=config)
+
+await Database.connect()
+
+@classy.server.endpoint_GET("/api/user/{AnimalModelNumber:int}")
+async def getuser_animalmodel(request: web.Request, AnimalModelNumber):
+	query_string = "SELECT * FROM users WHERE ip_address = %s AND animal_number = %s"
+    query_params = (request.remote, AnimalModelNumber)
+    user_animal = await Database.query(query_string, params=query_params)
+    return web.json_response(user_animal)
+
 
 @classy.server.endpoint_POST("/api/user")
 async def userget(request):
@@ -207,6 +218,54 @@ async def make_system_report(request):
 
 asyncio.run(start())
 ```
+
+## Schema
+* Implementation for Schema:
+```python
+from classy.schema import Schema, validate_schema
+from classy.server import endpoint_POST, start
+from aiohttp import web
+
+class Body(Schema):
+	# ...
+
+class Head(Schema):
+	# ...
+
+class Tail(Schema):
+	# ...
+
+class Hair(Schema):
+	# ...
+
+class Legs(Schema):
+	# ...
+
+class Model(Schema):
+	Hasbody: bool
+	Hashead: bool
+	Hastail: bool
+	Hashair: bool
+	Haslegs: bool
+	body: Body
+	head: Head
+	tail: Tail
+	hair: Hair
+	Legs: Legs
+
+@endpoint_POST("/api/v2/save-animal-to-profile")
+@validate_schema(Model)
+def save_animal_to_profile(request: web.Request, model: Model):
+	# Save to Database
+	# ... code ...
+
+	if success:
+		return web.json_response({ "success": True })
+
+	return web.json_response({ "success": False })
+```
+
+* Malformed JSON Requests can crash your server. So, you always need a Schema in the behind the scenes
 
 # Questions
 
