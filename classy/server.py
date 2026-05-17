@@ -3,11 +3,14 @@ from collections.abc import Callable
 import os
 import ssl
 from sys import path
+import sys
+import traceback
 from typing import Callable
 import colorama
 import inspect
+import time
 from aiohttp import request, request, web
-from datetime import datetime, time
+from datetime import datetime
 from ._server_helper import compile_route_path
 
 endpoints = []
@@ -62,134 +65,156 @@ class RequestException(Exception):
 
 default_folder: str
 
-async def dispatcher(request: web.Request):
+async def _handler(request: web.Request, e: Exception) -> web.Response:
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    tb_summary = traceback.extract_tb(exc_traceback)
+    filename, line, func, text = tb_summary[-1] if tb_summary else ("Unknown", 0, "Unknown", "Unknown")
 
-    method = request.method
-    path = request.path
+    print(f"\n{colorama.Fore.RED}{colorama.Style.BRIGHT}×  An error occurred whilst processing request")
+    print(f"{colorama.Fore.RED}├── Exception: {colorama.Fore.WHITE}{exc_type.__name__}: {e}")
+    print(f"{colorama.Fore.RED}└── Location:  {colorama.Fore.CYAN}{filename}:{line} in {func}() -> '{text}'")
 
-    print(
-        f"\n{datetime.now()} [{request.remote}] -- {path} {method}\n"
-        f"Has sent headers: {dict(request.headers)}\n"
-        f"Has sent query: {dict(request.query)}\n"
-        f"Has sent cookies: {dict(request.cookies)}\n"
+    if isinstance(e, RequestException):
+        return web.Response(text=e.message, status=e.code)
+
+    if 500 in error_handlers:
+        return await error_handlers[500](request, e)
+    
+    return web.Response(
+        text="500 Internal Server Error",
+        status=500
     )
 
-    for endpoint in endpoints:
+async def dispatcher(request: web.Request):
+    try:
+        method = request.method
+        path = request.path
 
-        if endpoint["method"] == method:
-            match = endpoint["compiled_pattern"].match(path)
-            
-            if match:
-                handler = endpoint["handler"]
+        print(
+            f"\n{datetime.now()} [{request.remote}] -- {path} {method}\n"
+            f"Has sent headers: {dict(request.headers)}\n"
+            f"Has sent query: {dict(request.query)}\n"
+            f"Has sent cookies: {dict(request.cookies)}\n"
+        )
+
+        for endpoint in endpoints:
+            if endpoint["method"] == method:
+                match = endpoint["compiled_pattern"].match(path)
                 
-                raw_params = match.groupdict()
-                casted_kwargs = {}
-                
-                try:
-                    for param_name, raw_string_val in raw_params.items():
-                        caster_func = endpoint["type_casters"][param_name]
-                        casted_kwargs[param_name] = caster_func(raw_string_val)
-                except (ValueError, TypeError) as casting_error:
-                    return web.json_response(
-                        {"error": "Invalid URL path parameter type format alignment"}, 
-                        status=400
-                    )
-
-                try:
-                    if inspect.iscoroutinefunction(handler):
-                        result = await handler(request, **casted_kwargs)
-                    else:
-                        result = handler(request, **casted_kwargs)
-
-                    if isinstance(result, web.Response):
-                        return result
-
-                    if isinstance(result, dict):
+                if match:
+                    handler = endpoint["handler"]
+                    
+                    raw_params = match.groupdict()
+                    casted_kwargs = {}
+                    
+                    try:
+                        for param_name, raw_string_val in raw_params.items():
+                            caster_func = endpoint["type_casters"][param_name]
+                            casted_kwargs[param_name] = caster_func(raw_string_val)
+                    except (ValueError, TypeError) as casting_error:
                         return web.json_response(
-                            result.get("response", {}),
-                            status=result.get("code", 200)
+                            {"error": "Invalid URL path parameter type format alignment"}, 
+                            status=400
                         )
 
-                    return web.Response(
-                        text=str(result),
-                        status=200
-                    )
+                    try:
+                        if inspect.iscoroutinefunction(handler):
+                            result = await handler(request, **casted_kwargs)
+                        else:
+                            result = handler(request, **casted_kwargs)
 
-                except RequestException as e:
+                        if isinstance(result, web.Response):
+                            return result
 
-                    if e.code in error_handlers:
-                        return await error_handlers[e.code](request, e)
+                        if isinstance(result, dict):
+                            return web.json_response(
+                                result.get("response", {}),
+                                status=result.get("code", 200)
+                            )
 
-                    return web.Response(
-                        text=e.message,
-                        status=e.code
-                    )
+                        return web.Response(
+                            text=str(result),
+                            status=200
+                        )
 
-                except Exception as e:
-                    print("Internal Error:", e)
+                    except RequestException as e:
 
-                    if 500 in error_handlers:
-                        return await error_handlers[500](request, e)
+                        if e.code in error_handlers:
+                            return await error_handlers[e.code](request, e)
 
-                    return web.Response(
-                        text="500 Internal Server Error",
-                        status=500
-                    )
-            
-    clean_path = path.lstrip("/")
-    local_path = os.path.abspath(os.path.join(_default_folder, clean_path))
-    base_dir = os.path.abspath(_default_folder)
+                        return web.Response(
+                            text=e.message,
+                            status=e.code
+                        )
 
-    if not local_path.startswith(base_dir):
+                    except Exception as e:
+                        print("Internal Error:", e)
+
+                        if 500 in error_handlers:
+                            return await error_handlers[500](request, e)
+
+                        return web.Response(
+                            text="500 Internal Server Error",
+                            status=500
+                        )
+                    
+        # Boilerplate so user dosent get back an empty page(s)
+        clean_path = path.lstrip("/")
+        local_path = os.path.abspath(os.path.join(_default_folder, clean_path))
+        base_dir = os.path.abspath(_default_folder)
+
+        if not local_path.startswith(base_dir):
+            if 404 in error_handlers:
+                return await error_handlers[404](request, None)
+            return web.Response(text="404 Not Found", status=404)
+
+        if os.path.isdir(local_path):
+            local_path = os.path.join(local_path, "index.html")
+
+        if not os.path.exists(local_path) and not local_path.endswith(".html"):
+            html_fallback = local_path + ".html"
+            if os.path.exists(html_fallback):
+                local_path = html_fallback
+
+        if os.path.exists(local_path) and os.path.isfile(local_path):
+            return web.FileResponse(local_path)
+
+        requested_dir = os.path.abspath(os.path.join(_default_folder, path.lstrip("/")))
+        
+        if os.path.exists(requested_dir) and os.path.isdir(requested_dir):
+            list_items = []
+            try:
+                for item in os.listdir(requested_dir):
+                    web_link_path = os.path.join(path, item).replace("\\", "/")
+                    list_items.append(f'<li><a href="{web_link_path}">{item}</a></li>')
+                    
+                webtext = f"""
+                <!DOCTYPE html>
+                <html>
+                <head><title>Directory listing for {path}</title></head>
+                <body>
+                    <h1>Directory listing for {path}</h1>
+                    <hr>
+                    <ul>
+                        {''.join(list_items)}
+                    </ul>
+                </body>
+                </html>
+                """
+
+                return web.Response(text=webtext, content_type="text/html", status=200)
+                
+            except Exception as e:
+                print(f"Failed to generate directory listing: {e}")
+                if 500 in error_handlers:
+                    return await error_handlers[500](request, e)
+
         if 404 in error_handlers:
             return await error_handlers[404](request, None)
-        return web.Response(text="404 Not Found", status=404)
-
-    if os.path.isdir(local_path):
-        local_path = os.path.join(local_path, "index.html")
-
-    if not os.path.exists(local_path) and not local_path.endswith(".html"):
-        html_fallback = local_path + ".html"
-        if os.path.exists(html_fallback):
-            local_path = html_fallback
-
-    if os.path.exists(local_path) and os.path.isfile(local_path):
-        return web.FileResponse(local_path)
-
-    requested_dir = os.path.abspath(os.path.join(_default_folder, path.lstrip("/")))
-    
-    if os.path.exists(requested_dir) and os.path.isdir(requested_dir):
-        list_items = []
-        try:
-            for item in os.listdir(requested_dir):
-                web_link_path = os.path.join(path, item).replace("\\", "/")
-                list_items.append(f'<li><a href="{web_link_path}">{item}</a></li>')
-                
-            webtext = f"""
-            <!DOCTYPE html>
-            <html>
-            <head><title>Directory listing for {path}</title></head>
-            <body>
-                <h1>Directory listing for {path}</h1>
-                <hr>
-                <ul>
-                    {''.join(list_items)}
-                </ul>
-            </body>
-            </html>
-            """
-
-            return web.Response(text=webtext, content_type="text/html", status=200)
             
-        except Exception as e:
-            print(f"Failed to generate directory listing: {e}")
-            if 500 in error_handlers:
-                return await error_handlers[500](request, e)
-
-    if 404 in error_handlers:
-        return await error_handlers[404](request, None)
-        
-    return web.Response(text="404 Not Found", status=404)
+        return web.Response(text="404 Not Found", status=404)
+    except Exception as e:
+        return await _handler(request, e)
 
 async def start(
     host: str = "0.0.0.0",

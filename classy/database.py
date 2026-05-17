@@ -88,29 +88,24 @@ class Db:
             
         elif self.etype == "postgres":
             async with self.pool.acquire() as conn:
-                transaction = conn.transaction()
-                await transaction.start()
                 try:
-                    is_select = sql_string.strip().lower().startswith("select")
-                    
-                    if is_select:
-                        rows = await conn.fetch(sql_string, *normalized_params)
-                        if fetch_all:
-                            result = [dict(row) for row in rows]
+                    if not autocommit:
+                        async with conn.transaction():
+                            is_select = sql_string.strip().lower().startswith("select")
+                            if is_select:
+                                rows = await conn.fetch(sql_string, *normalized_params)
+                                return [dict(row) for row in rows] if fetch_all else (dict(rows[0]) if rows else None)
+                            else:
+                                return await conn.execute(sql_string, *normalized_params)
+                    else:
+                        is_select = sql_string.strip().lower().startswith("select")
+                        if is_select:
+                            rows = await conn.fetch(sql_string, *normalized_params)
+                            return [dict(row) for row in rows] if fetch_all else (dict(rows[0]) if rows else None)
                         else:
-                            result = dict(rows[0]) if rows else None
-                    else:
-                        result = await conn.execute(sql_string, *normalized_params)
-                    
-                    if autocommit:
-                        await transaction.commit()
-                    else:
-                        await transaction.rollback()
-                        
-                    return result
+                            return await conn.execute(sql_string, *normalized_params)
                 except Exception as exception:
                     if rollback:
-                        await transaction.rollback()
                         if not retexpt: raise exception
 
                         if retexpt:
