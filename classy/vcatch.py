@@ -16,6 +16,34 @@ def sanitize_input(data: Any) -> Any:
     return data
 
 
+def prevent_cors():
+    def decorator(route_handler):
+        @wraps(route_handler)
+        async def wrapper(request: web.Request, *args, **kwargs):
+            # 1. Handle Browser Preflight (OPTIONS) Requests Instantly
+            if request.method == "OPTIONS":
+                return web.Response(
+                    status=200,
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+                        "Access-Control-Max-Age": "86400"
+                    }
+                )
+
+            response = await route_handler(request, *args, **kwargs)
+
+            if isinstance(response, web.StreamResponse):
+                response.headers["Access-Control-Allow-Origin"] = "*"
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+            
+            return response
+
+        return wrapper
+    return decorator
+
 def preventv(trusted_websites: str = ""):
     def decorator(handler: Callable[[web.Request], Any]):
         @wraps(handler)

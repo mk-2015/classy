@@ -35,7 +35,13 @@ class Schema:
                     val = str(val)
                 elif expected_type is bool:
                     if isinstance(val, str):
-                        val = val.lower() in ("true", "1", "yes", "y")
+                            lowered = val.lower()
+                            if lowered in ("true", "1", "yes", "y"):
+                                val = True
+                            elif lowered in ("false", "0", "no", "n"):
+                                val = False
+                            else:
+                                raise ValueError("Value is neither Truthy nor Falsy")
                     else:
                         val = bool(val)
 
@@ -50,28 +56,51 @@ class Schema:
     @property
     def is_valid(self) -> bool:
         return len(self._errors) == 0
+        
+    @classmethod
+    def get_field_type(cls, field_name: str) -> Any:
+        hints = get_type_hints(cls)
+        return hints.get(field_name)
 
+    def get_value(self, field_name: str, default: Any = None) -> Any:
+        return getattr(self, field_name, default)
+        
+    def __getitem__(self, item: str) -> Any:
+        if hasattr(self, item):
+            return getattr(self, item)
+        raise KeyError(f"Field '{item}' does not exist or schema is invalid.")
+
+    def to_dict(self) -> Dict[str, Any]:
+        hints = get_type_hints(self.__class__)
+        result = {}
+        for field in hints:
+            if hasattr(self, field):
+                val = getattr(self, field)
+                result[field] = val.to_dict() if isinstance(val, Schema) else val
+        return result
 
 def validate_schema(schema_class: Type[Schema]):
     def decorator(route_handler):
         @wraps(route_handler)
         async def wrapper(request: web.Request, *args, **kwargs):
             try:
-                body = await request.json()
+                body_data = await request.json()
             except Exception:
                 return web.json_response(
                     {"status": "error", "message": "Malformed or missing JSON payload."}, 
                     status=400
                 )
 
-            payload_instance = schema_class(body)
+            payload_instance = schema_class(body_data)
 
             if not payload_instance.is_valid:
                 return web.json_response(
                     {"status": "error", "validation_failures": payload_instance._errors}, 
                     status=400
                 )
-            return await route_handler(request, payload=payload_instance, *args, **kwargs)
+
+            kwargs['body'] = payload_instance
+            return await route_handler(request, *args, **kwargs)
 
         return wrapper
     return decorator

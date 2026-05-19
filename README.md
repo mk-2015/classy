@@ -12,7 +12,7 @@
 - Rate limiter
 - Authentication
 - Schema for JSON (Java Script Object Notation)
-- XSS/CSP
+- XSS/CSP and CORS
 
 ## SSL Support
 - Yes there is ssl support to use ssl you have to do this:
@@ -122,7 +122,7 @@ def auth_func(request):
 
 @server.endpoint_POST("/api/v3/user-authed")
 @auth.require_auth(auth_func)
-@xss.preventv() # Sanatizes the body into request['sanitized_data'], adds XSS,CSP Headers automatically
+@vcatch.preventv() # Sanatizes the body into request['sanitized_data'], adds XSS,CSP Headers automatically
 def userauthed(request):
 	return web.Response(
 		text="You shall pass!"
@@ -276,7 +276,10 @@ def save_animal_to_profile(request: web.Request, model: Model):
 	* => We use classes for Db because instead of passing in multiple varibles for it to work, you dont even need to pass in the conn or cursor varibles. You just pass in the query!
 
 * 3. Why do REST and Static file serving?
-	* => We integrate REST and Static file serving because instead of choosing two Static file serving, and REST Frameworks and having to intertwine them you can just do them both
+	* => We integrate REST and Static file serving because instead of choosing two Static file serving, REST Frameworks and having to intertwine them you can just do them both
+
+* 4. What is authentication anyways?
+	* => Authentication (AuthN) is the cryptographic or logical process of proving you are who you say you are.
 
 # Contributing
 - Any contributions to this project are warmly welcomed
