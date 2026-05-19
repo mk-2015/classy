@@ -256,9 +256,10 @@ class Model(Schema):
 
 @endpoint_POST("/api/v2/save-animal-to-profile")
 @validate_schema(Model)
-def save_animal_to_profile(request: web.Request, model: Model):
+def save_animal_to_profile(request: web.Request, kwargs):
 	# Save to Database
 	# ... code ...
+    # kwargs['body'] is the Schema/JSON
 
 	if success:
 		return web.json_response({ "success": True })
