@@ -46,7 +46,8 @@ Database = classy.database.Db(etype="mysql", config=config)
 await Database.connect()
 
 @classy.server.endpoint_GET("/api/user/{AnimalModelNumber:int}")
-async def getuser_animalmodel(request: web.Request, AnimalModelNumber):
+async def getuser_animalmodel(request: web.Request, kwargs):
+    AnimalModelNumber = kwargs['AnimalModelNumber']
 	query_string = "SELECT * FROM users WHERE ip_address = %s AND animal_number = %s"
     query_params = (request.remote, AnimalModelNumber)
     user_animal = await Database.query(query_string, params=query_params)
