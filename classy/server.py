@@ -15,6 +15,7 @@ from ._server_helper import compile_route_path
 
 endpoints = []
 error_handlers = {}
+middleware = []
 
 def route(method: str, path_template: str):
     compiled_pattern, type_casters = compile_route_path(path_template)
@@ -56,6 +57,15 @@ def register_error(code: int):
 
     return decorator
 
+def middleware_func():
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(request: web.Request, args: tuple, kwargs: dict, next_layer: Callable):
+            return await func(request, args, kwargs, next_layer)
+        
+        middleware.append(wrapper)
+        return wrapper
+    return decorator
 
 class RequestException(Exception):
     def __init__(self, code: int, message: str):
@@ -85,6 +95,20 @@ async def _handler(request: web.Request, e: Exception) -> web.Response:
         status=500
     )
 
+async def execute_pipeline(request: web.Request, args: tuple, kwargs: dict, route_handler: Callable):
+    idx = 0
+
+    async def next_layer():
+        nonlocal idx
+        if idx < len(GLOBAL_MIDDLEWARE):
+            current_middleware = GLOBAL_MIDDLEWARE[idx]
+            idx += 1
+            return await current_middleware(request, args, kwargs, next_layer)
+        else:
+            return await route_handler(request, args, kwargs)
+
+    return await next_layer()
+
 async def dispatcher(request: web.Request):
     try:
         method = request.method
@@ -103,7 +127,6 @@ async def dispatcher(request: web.Request):
                 
                 if match:
                     handler = endpoint["handler"]
-                    
                     raw_params = match.groupdict()
                     casted_kwargs = {}
                     
@@ -111,17 +134,22 @@ async def dispatcher(request: web.Request):
                         for param_name, raw_string_val in raw_params.items():
                             caster_func = endpoint["type_casters"][param_name]
                             casted_kwargs[param_name] = caster_func(raw_string_val)
-                    except (ValueError, TypeError) as casting_error:
+                    except (ValueError, TypeError):
                         return web.json_response(
                             {"error": "Invalid URL path parameter type format alignment"}, 
                             status=400
                         )
 
+                    args = ()
+                    kwargs = casted_kwargs
+
                     try:
-                        if inspect.iscoroutinefunction(handler):
-                            result = await handler(request, **casted_kwargs)
-                        else:
-                            result = handler(request, **casted_kwargs)
+                        result = await execute_pipeline(request, args, kwargs, handler)
+                    except Exception as pipeline_error:
+                        return web.json_response(
+                            {"status": "error", "message": "Internal Server Error"}, 
+                            status=500
+                        )
 
                         if isinstance(result, web.Response):
                             return result
