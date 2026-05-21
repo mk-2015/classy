@@ -35,13 +35,13 @@ class Schema:
                     val = str(val)
                 elif expected_type is bool:
                     if isinstance(val, str):
-                            lowered = val.lower()
-                            if lowered in ("true", "1", "yes", "y"):
-                                val = True
-                            elif lowered in ("false", "0", "no", "n"):
-                                val = False
-                            else:
-                                raise ValueError("Value is neither Truthy nor Falsy")
+                        lowered = val.lower()
+                        if lowered in ("true", "1", "yes", "y"):
+                            val = True
+                        elif lowered in ("false", "0", "no", "n"):
+                            val = False
+                        else:
+                            raise ValueError("Value is neither Truthy nor Falsy")
                     else:
                         val = bool(val)
 
@@ -55,7 +55,18 @@ class Schema:
 
     @property
     def is_valid(self) -> bool:
-        return len(self._errors) == 0
+        if len(self._errors) > 0:
+            return False
+        
+        # Recursively check nested schemas
+        hints = get_type_hints(self.__class__)
+        for field_name in hints:
+            if hasattr(self, field_name):
+                val = getattr(self, field_name)
+                if isinstance(val, Schema) and not val.is_valid:
+                    return False
+        
+        return True
         
     @classmethod
     def get_field_type(cls, field_name: str) -> Any:
@@ -76,7 +87,10 @@ class Schema:
         for field in hints:
             if hasattr(self, field):
                 val = getattr(self, field)
-                result[field] = val.to_dict() if isinstance(val, Schema) else val
+                if isinstance(val, Schema) and hasattr(val, 'to_dict'):
+                    result[field] = val.to_dict()
+                else:
+                    result[field] = val
         return result
 
 def validate_schema(schema_class: Type[Schema]):
