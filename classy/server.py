@@ -57,15 +57,11 @@ def register_error(code: int):
 
     return decorator
 
-def middleware_func():
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(request: web.Request, args: tuple, kwargs: dict, next_layer: Callable):
-            return await func(request, args, kwargs, next_layer)
+def use(middleware_func: Callable):
+    if not callable(middleware_func):
+        raise TypeError("Input is not a Callable type or object")
         
-        middleware.append(wrapper)
-        return wrapper
-    return decorator
+    middleware.append(middleware_func)
 
 class RequestException(Exception):
     def __init__(self, code: int, message: str):
@@ -96,18 +92,17 @@ async def _handler(request: web.Request, e: Exception) -> web.Response:
     )
 
 async def execute_pipeline(request: web.Request, args: tuple, kwargs: dict, route_handler: Callable):
-    idx = 0
-
-    async def next_layer():
-        nonlocal idx
-        if idx < len(GLOBAL_MIDDLEWARE):
-            current_middleware = GLOBAL_MIDDLEWARE[idx]
-            idx += 1
+    
+    async def dispatch(idx: int):
+        if idx < len(middleware):
+            current_middleware = middleware[idx]
+            async def next_layer():
+                return await dispatch(idx + 1)
             return await current_middleware(request, args, kwargs, next_layer)
         else:
             return await route_handler(request, args, kwargs)
 
-    return await next_layer()
+    return await dispatch(0)
 
 async def dispatcher(request: web.Request):
     try:
@@ -176,7 +171,7 @@ async def dispatcher(request: web.Request):
                         )
 
                     except Exception as e:
-                        print("Internal Error:", e)
+                        print("Internal Error: 500")
 
                         if 500 in error_handlers:
                             return await error_handlers[500](request, e)

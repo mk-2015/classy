@@ -4,7 +4,7 @@ import colorama
 colorama.init(autoreset=True)
 
 from .database import Db
-from .xss import preventv
+from .vcatch import preventv
 from .auth import require_auth, shaVerify
 from .client import webresource, close_webresource_pool
 from .logger import log, tokenize, detokenize
