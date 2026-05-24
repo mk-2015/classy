@@ -1,21 +1,18 @@
 import asyncio
-from collections.abc import Callable
 import os
 import ssl
-from sys import path
-import sys
-import traceback
-from typing import Callable
-import colorama
-import inspect
 import time
-from aiohttp import request, request, web
+import traceback
+from collections.abc import Callable
 from datetime import datetime
+from typing import Any, Dict, List
+import colorama
+from aiohttp import web
 from ._server_helper import compile_route_path
 
-endpoints = []
-error_handlers = {}
-middleware = []
+endpoints: List[Dict[str, Any]] = []
+error_handlers: Dict[int, Callable[..., Any]] = {}
+middleware: List[Callable[..., Any]] = []
 
 def route(method: str, path_template: str):
     compiled_pattern, type_casters = compile_route_path(path_template)
@@ -72,12 +69,11 @@ class RequestException(Exception):
 default_folder: str
 
 async def _handler(request: web.Request, e: Exception) -> web.Response:
-    exc_type, exc_value, exc_traceback = sys.exc_info()
-    tb_summary = traceback.extract_tb(exc_traceback)
+    tb_summary = traceback.extract_tb(e.__traceback__)
     filename, line, func, text = tb_summary[-1] if tb_summary else ("Unknown", 0, "Unknown", "Unknown")
 
     print(f"\n{colorama.Fore.RED}{colorama.Style.BRIGHT}×  An error occurred whilst processing request")
-    print(f"{colorama.Fore.RED}├── Exception: {colorama.Fore.WHITE}{exc_type.__name__}: {e}")
+    print(f"{colorama.Fore.RED}├── Exception: {colorama.Fore.WHITE}{type(e).__name__}: {e}")
     print(f"{colorama.Fore.RED}└── Location:  {colorama.Fore.CYAN}{filename}:{line} in {func}() -> '{text}'")
 
     if isinstance(e, RequestException):
@@ -91,16 +87,16 @@ async def _handler(request: web.Request, e: Exception) -> web.Response:
         status=500
     )
 
-async def execute_pipeline(request: web.Request, args: tuple, kwargs: dict, route_handler: Callable):
+async def execute_pipeline(request: web.Request, route_handler: Callable, *args, **kwargs):
     
     async def dispatch(idx: int):
         if idx < len(middleware):
             current_middleware = middleware[idx]
             async def next_layer():
                 return await dispatch(idx + 1)
-            return await current_middleware(request, args, kwargs, next_layer)
+            return await current_middleware(request, next_layer, *args, **kwargs)
         else:
-            return await route_handler(request, args, kwargs)
+            return await route_handler(request, *args, **kwargs)
 
     return await dispatch(0)
 
@@ -139,47 +135,23 @@ async def dispatcher(request: web.Request):
                     kwargs = casted_kwargs
 
                     try:
-                        result = await execute_pipeline(request, args, kwargs, handler)
-                    except Exception as pipeline_error:
-                        return web.json_response(
-                            {"status": "error", "message": "Internal Server Error"}, 
-                            status=500
-                        )
-
-                        if isinstance(result, web.Response):
-                            return result
-
-                        if isinstance(result, dict):
-                            return web.json_response(
-                                result.get("response", {}),
-                                status=result.get("code", 200)
-                            )
-
-                        return web.Response(
-                            text=str(result),
-                            status=200
-                        )
-
-                    except RequestException as e:
-
-                        if e.code in error_handlers:
-                            return await error_handlers[e.code](request, e)
-
-                        return web.Response(
-                            text=e.message,
-                            status=e.code
-                        )
-
-                    except Exception as e:
-                        print("Internal Error: 500")
-
+                        result = await execute_pipeline(request, handler, *args, **kwargs)
+                    except RequestException as exc:
+                        if exc.code in error_handlers:
+                            return await error_handlers[exc.code](request, exc)
+                        return web.Response(text=exc.message, status=exc.code)
+                    except Exception as exc:
                         if 500 in error_handlers:
-                            return await error_handlers[500](request, e)
+                            return await error_handlers[500](request, exc)
+                        return web.Response(text="500 Internal Server Error", status=500)
 
-                        return web.Response(
-                            text="500 Internal Server Error",
-                            status=500
-                        )
+                    if isinstance(result, web.Response):
+                        return result
+
+                    if isinstance(result, dict):
+                        return web.json_response(result.get("response", {}), status=result.get("code", 200))
+
+                    return web.Response(text=str(result), status=200)
                     
         # Boilerplate so user dosent get back an empty page(s)
         clean_path = path.lstrip("/")
@@ -203,14 +175,14 @@ async def dispatcher(request: web.Request):
             return web.FileResponse(local_path)
 
         requested_dir = os.path.abspath(os.path.join(_default_folder, path.lstrip("/")))
-        
+
         if os.path.exists(requested_dir) and os.path.isdir(requested_dir):
             list_items = []
             try:
                 for item in os.listdir(requested_dir):
                     web_link_path = os.path.join(path, item).replace("\\", "/")
                     list_items.append(f'<li><a href="{web_link_path}">{item}</a></li>')
-                    
+
                 webtext = f"""
                 <!DOCTYPE html>
                 <html>
@@ -226,7 +198,7 @@ async def dispatcher(request: web.Request):
                 """
 
                 return web.Response(text=webtext, content_type="text/html", status=200)
-                
+
             except Exception as e:
                 print(f"Failed to generate directory listing: {e}")
                 if 500 in error_handlers:
@@ -234,7 +206,7 @@ async def dispatcher(request: web.Request):
 
         if 404 in error_handlers:
             return await error_handlers[404](request, None)
-            
+
         return web.Response(text="404 Not Found", status=404)
     except Exception as e:
         return await _handler(request, e)

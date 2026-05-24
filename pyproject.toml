@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-classy" 
-version = "1.3.0"
-description = "A high-performance, functional asynchronous networking and security framework."
-authors = [{ name="mk-2015", email="sxcyber17@gmail.com" }]
+version = "1.4.0"
+description = "A high-performance, functional asynchronous networking framework."
+authors = [{ name="mk-2015", email="sxcyber17+firepy@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.8"  
 license = { text = "MIT" }
@@ -22,7 +22,8 @@ dependencies = [
     "asyncpg>=0.29.0",
     "aiomysql>=0.2.0",
     "aiosqlite>=0.19.0",
-    "colorama>=0.4.6"
+    "colorama>=0.4.6",
+    "pydantic>=2.13.4"
 ]
 
 [project.urls]

@@ -5,27 +5,24 @@ from aiohttp import ClientSession, TCPConnector
 _session_cache: Dict[Tuple[bool, Optional[str], Optional[str]], ClientSession] = {}
 
 async def get_session(
-    use_ssl: bool, 
-    keyfile: Optional[str], 
+    use_ssl: bool,
+    keyfile: Optional[str],
     certfile: Optional[str]
 ) -> ClientSession:
-    global _session_cache
-    
     cache_key = (use_ssl, keyfile, certfile)
     session = _session_cache.get(cache_key)
-    
-    if session is None or session.closed or session.loop.is_closed():
+
+    if session is None or session.closed or getattr(session, 'loop', None) is None or session.loop.is_closed():
         ssl_context = False
         if use_ssl:
             ssl_context = ssl.create_default_context()
             if keyfile and certfile:
                 ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
-        
+
         connector = TCPConnector(ssl=ssl_context, limit=100)
-        
         session = ClientSession(connector=connector)
         _session_cache[cache_key] = session
-        
+
     return session
 
 async def webresource(

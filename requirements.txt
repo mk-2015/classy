@@ -3,3 +3,4 @@ asyncpg
 aiomysql
 aiosqlite
 colorama
+pydantic

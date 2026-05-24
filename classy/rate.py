@@ -11,9 +11,7 @@ def rate_limit(max_tokens: int, refill_period_seconds: int, minus_token_amount: 
     def decorator(handler):
         @wraps(handler)
         async def wrapper(request: web.Request, *args, **kwargs):
-            global _rate_limit_cache
-            
-            client_ip = request.remote
+            client_ip = request.remote or request.headers.get('X-Forwarded-For', 'unknown')
             current_time = time.time()
             if client_ip not in _rate_limit_cache:
                 tokens = float(max_tokens)

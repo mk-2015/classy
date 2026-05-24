@@ -1,7 +1,7 @@
 #!/bin/bash
 
 LIMIT=100
-IP="192.168.1.66"
+IP="192.168.100.123"
 PORT="8080"
 
 echo > out.txt

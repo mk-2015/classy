@@ -20,7 +20,6 @@ def prevent_cors():
     def decorator(route_handler):
         @wraps(route_handler)
         async def wrapper(request: web.Request, *args, **kwargs):
-            # 1. Handle Browser Preflight (OPTIONS) Requests Instantly
             if request.method == "OPTIONS":
                 return web.Response(
                     status=200,

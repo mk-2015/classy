@@ -80,11 +80,9 @@ class Db:
                         await self.pool.rollback()
                     except Exception as rb_err:
                         print(f"SQLite Rollback failed: {rb_err}")
-                        
-                        if not retexpt: raise exception
-
-                        if retexpt:
-                            return exception
+                if retexpt:
+                    return exception
+                raise exception
             
         elif self.etype == "postgres":
             async with self.pool.acquire() as conn:
@@ -105,11 +103,9 @@ class Db:
                         else:
                             return await conn.execute(sql_string, *normalized_params)
                 except Exception as exception:
-                    if rollback:
-                        if not retexpt: raise exception
-
-                        if retexpt:
-                            return exception
+                    if retexpt:
+                        return exception
+                    raise exception
                 
         elif self.etype == "mysql":
             async with self.pool.acquire() as conn:
@@ -131,10 +127,9 @@ class Db:
                                 await conn.rollback()
                             except Exception as rb_err:
                                 print(f"MySQL Rollback failed: {rb_err}")
-                        if not retexpt: raise exception
-
                         if retexpt:
                             return exception
+                        raise exception
 
     async def query_amrq(
         self,

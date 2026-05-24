@@ -37,12 +37,12 @@ class SignUp(Schema):
     
 @endpoint_POST("/test/savemodel/{modelNo:int}/user/{user:str}")
 @validate_schema(SignUp)
-async def postage(request: web.Request, args, kwargs):
+async def postage(request: web.Request, *args, **kwargs):
     modelNo = kwargs['modelNo']
     model = kwargs['body']
     user = kwargs['user']
     
-    async def thread_safe_file_write():
+    def thread_safe_file_write():
         with open("database.txt", "a+", encoding="utf-8") as file:
             file.seek(0)
             line = file.readline().strip()
@@ -55,6 +55,7 @@ async def postage(request: web.Request, args, kwargs):
             file.seek(0, 2)
             file.write(f"USER={user}, MODELNO={modelNo}, model={model}\n")
 
+    # This handles offloading the blocking I/O to a separate thread cleanly
     await asyncio.to_thread(thread_safe_file_write)
 
     return web.json_response({

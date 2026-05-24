@@ -1,8 +1,3 @@
-import asyncio
-import colorama
-
-colorama.init(autoreset=True)
-
 from .database import Db
 from .vcatch import preventv
 from .auth import require_auth, shaVerify
