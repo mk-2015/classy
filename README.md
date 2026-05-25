@@ -1,8 +1,5 @@
-# A quick warning
-!! Classy is not finised yet so be careful using it !!
-
-
 # classy
+- Release: 1.4.0
 - Webserver (https://, http://)
 - Json (WIP)
 - Error handling (WIP)

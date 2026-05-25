@@ -9,12 +9,12 @@ description = "A high-performance, functional asynchronous networking framework.
 authors = [{ name="mk-2015", email="sxcyber17+firepy@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.8"  
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE*"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers"
 ]
 
 dependencies = [
@@ -27,5 +27,5 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/mk-2015/python-classy"
-"Bug Tracker" = "https://github.com/mk-2015/python-classy/issues"
+"Homepage" = "https://github.com/mk-2015/classy"
+"Bug Tracker" = "https://github.com/mk-2015/classy/issues"
