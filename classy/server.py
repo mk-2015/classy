@@ -273,8 +273,7 @@ async def start(
 
     print(f"Server started on http{'s' if use_ssl else ''}://{host}:{port}")
 
-    while True:
-        await asyncio.sleep(3600)
 
+#
 # if __name__ == "__main__":
 #    asyncio.run(start())

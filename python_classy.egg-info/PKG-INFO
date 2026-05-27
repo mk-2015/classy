@@ -3,21 +3,22 @@ Name: python-classy
 Version: 1.4.0
 Summary: A high-performance, functional asynchronous networking framework.
 Author-email: mk-2015 <sxcyber17+firepy@gmail.com>
-License: MIT
+License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://github.com/mk-2015/classy
 Project-URL: Bug Tracker, https://github.com/mk-2015/classy/issues
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: asyncpg>=0.29.0
 Requires-Dist: aiomysql>=0.2.0
 Requires-Dist: aiosqlite>=0.19.0
 Requires-Dist: colorama>=0.4.6
 Requires-Dist: pydantic>=2.13.4
+Dynamic: license-file
 
 # classy
 - Release: 1.4.0

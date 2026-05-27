@@ -55,7 +55,6 @@ async def postage(request: web.Request, *args, **kwargs):
             file.seek(0, 2)
             file.write(f"USER={user}, MODELNO={modelNo}, model={model}\n")
 
-    # This handles offloading the blocking I/O to a separate thread cleanly
     await asyncio.to_thread(thread_safe_file_write)
 
     return web.json_response({
@@ -63,7 +62,7 @@ async def postage(request: web.Request, *args, **kwargs):
         "code": 201,
         "info": {
             "user": f"{user}",
-            "modelNo": f"{modelNo}",  # Fixed missing comma here
+            "modelNo": f"{modelNo}",
             "Message": f"user: {user}, created model: {modelNo}"
         }
     }, status=201)
