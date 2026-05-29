@@ -1,7 +1,7 @@
 import html
 from functools import wraps
 from aiohttp import web
-from typing import Callable, Any
+from typing import Callable, Any, Optional
 
 def sanitize_input(data: Any) -> Any:
     if isinstance(data, str):
@@ -16,15 +16,21 @@ def sanitize_input(data: Any) -> Any:
     return data
 
 
-def prevent_cors():
+def prevent_cors(trusted_origins: Optional[str] = None):
     def decorator(route_handler):
         @wraps(route_handler)
         async def wrapper(request: web.Request, *args, **kwargs):
+            origin = request.headers.get("Origin")
+            allowed_origins = [o.strip() for o in trusted_origins.split(",")] if trusted_origins else []
+            allowed = origin in allowed_origins
+
             if request.method == "OPTIONS":
+                if not allowed:
+                    return web.Response(status=403)
                 return web.Response(
                     status=200,
                     headers={
-                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Origin": origin,
                         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
                         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
                         "Access-Control-Max-Age": "86400"
@@ -33,8 +39,8 @@ def prevent_cors():
 
             response = await route_handler(request, *args, **kwargs)
 
-            if isinstance(response, web.StreamResponse):
-                response.headers["Access-Control-Allow-Origin"] = "*"
+            if isinstance(response, web.StreamResponse) and allowed:
+                response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
                 response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
             
@@ -62,10 +68,12 @@ def preventv(trusted_websites: str = ""):
 
             response = await handler(request, *args, **kwargs)
             
-            csp_sources = f" 'self' {trusted_websites}".strip()
+            csp_sources = "'self'"
+            if trusted_websites:
+                csp_sources = f"{csp_sources} {trusted_websites}"
             response.headers["Content-Security-Policy"] = f"default-src {csp_sources}; object-src 'none';"
             response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["X-XSS-Protection"] = "0"
+            response.headers["X-XSS-Protection"] = "1; mode=block"
             response.headers["X-Frame-Options"] = "DENY"
             
             return response

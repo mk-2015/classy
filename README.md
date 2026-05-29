@@ -1,15 +1,16 @@
 # classy
-- Release: 1.4.0
+- Release: 1.5.0
 - Webserver (https://, http://)
 - Json (WIP)
 - Error handling (WIP)
 - ***database intergation & mysql, postgres:***
 	- *Async*
-	- **AMRQ** *(Async Multiple Request Query)*
+	- **ARMQ** *(Async Request Multiple Query)*
 - Rate limiter
 - Authentication
 - Schema for JSON (Java Script Object Notation)
 - XSS/CSP and CORS
+- Plugins (Providers)
 
 ## SSL Support
 - Yes there is ssl support to use ssl you have to do this:
@@ -164,9 +165,9 @@ def userauthed(request):
 	```
 	* Async code
 	* Autocommiting and rollbacks
-* Example: Use AMRQ:
+* Example: Use ARMQ:
 	```python
-	results = await db.query_amrq({
+	results = await db.query_armq({
     	"users": "SELECT * FROM users",
     	"target_post": ("SELECT * FROM posts WHERE id = $1", (1,)),
     	"comments": ["SELECT * FROM comments"]
@@ -190,6 +191,52 @@ def userauthed(request):
 			]
   		}
 		```
+
+## Add a Plugin (Provider)
+- This is a set it and forget it method!
+- The only thing you need to remember is the classid
+- Example:
+```python
+from aiohttp import web
+from classy import server
+from classy.provider import extend, run, Provider
+
+class MemCache(Provider):
+	def __init__(self):
+		super().__init__("MemCache", [{"disk": False}, {"network": False}])
+		self._store = {}
+
+	def __proc_set_value(self):
+		return [{"disk": False}, {"network": False}]
+
+	def set_value(self, key: str, val: str):
+        self._store[key] = val
+        return True
+
+id = extend(MemCache())
+run(id).set_value("Authed", "no")
+```
+- Features:
+	* Global, can be accessed once defined and ```extend()```ed
+	* The extension lives after function dies
+	* Supports seamless modular distribution. Third-party developers can package extensions cleanly following naming conventions like: 
+    	* Official extensions: firepy-aioclassy-extender-xyz
+    	* Community extensions: user-classy-extender-xyy
+
+- Example:
+```bash
+pip install firepy-aioclassy-extender-xyzplug
+```
+and now:
+```python
+from aiohttp import web
+from classy.server import endpoint_GET, start
+from classy.server import extend, run
+from xyzplug.plugin1 import WebApiProvider
+
+id = extend(WebApiProvider())
+run(id).func()
+```
 
 ## Rate limiter
 
@@ -268,7 +315,7 @@ def save_animal_to_profile(request: web.Request, kwargs):
 
 # Questions
 
-* 1. What is AMRQ?
+* 1. What is ARMQ?
 	* => It is a feature in the database module of classy used to get multiple results at the same time
 
 * 2. Why use classes for Db?

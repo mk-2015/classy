@@ -5,7 +5,7 @@ import time
 import traceback
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import colorama
 from aiohttp import web
 from ._server_helper import compile_route_path
@@ -100,17 +100,21 @@ async def execute_pipeline(request: web.Request, route_handler: Callable, *args,
 
     return await dispatch(0)
 
-async def dispatcher(request: web.Request):
+async def dispatcher(request: web.Request, disablevlogging: bool, disablelogging: bool) -> web.Response:
     try:
         method = request.method
         path = request.path
 
-        print(
-            f"\n{datetime.now()} [{request.remote}] -- {path} {method}\n"
-            f"Has sent headers: {dict(request.headers)}\n"
-            f"Has sent query: {dict(request.query)}\n"
-            f"Has sent cookies: {dict(request.cookies)}\n"
-        )
+        if not disablelogging:
+            if not disablevlogging:
+                print(
+                    f"\n{datetime.now()} [{request.remote}] -- {path} {method}\n"
+                    f"Has sent headers: {dict(request.headers)}\n"
+                    f"Has sent query: {dict(request.query)}\n"
+                    f"Has sent cookies: {dict(request.cookies)}\n"
+                )
+            else: 
+                print(f"\n{datetime.now()} [{request.remote}] -- {path} {method}\n")
 
         for endpoint in endpoints:
             if endpoint["method"] == method:
@@ -155,26 +159,26 @@ async def dispatcher(request: web.Request):
                     
         # Boilerplate so user dosent get back an empty page(s)
         clean_path = path.lstrip("/")
-        local_path = os.path.abspath(os.path.join(_default_folder, clean_path))
-        base_dir = os.path.abspath(_default_folder)
+        base_dir = os.path.realpath(_default_folder)
+        local_path = os.path.realpath(os.path.join(base_dir, clean_path))
 
-        if not local_path.startswith(base_dir):
+        if not (local_path == base_dir or local_path.startswith(base_dir + os.sep)):
             if 404 in error_handlers:
                 return await error_handlers[404](request, None)
             return web.Response(text="404 Not Found", status=404)
 
         if os.path.isdir(local_path):
-            local_path = os.path.join(local_path, "index.html")
+            local_path = os.path.realpath(os.path.join(local_path, "index.html"))
 
         if not os.path.exists(local_path) and not local_path.endswith(".html"):
-            html_fallback = local_path + ".html"
-            if os.path.exists(html_fallback):
+            html_fallback = os.path.realpath(local_path + ".html")
+            if os.path.exists(html_fallback) and (html_fallback == base_dir or html_fallback.startswith(base_dir + os.sep)):
                 local_path = html_fallback
 
         if os.path.exists(local_path) and os.path.isfile(local_path):
             return web.FileResponse(local_path)
 
-        requested_dir = os.path.abspath(os.path.join(_default_folder, path.lstrip("/")))
+        requested_dir = os.path.realpath(os.path.join(base_dir, path.lstrip("/")))
 
         if os.path.exists(requested_dir) and os.path.isdir(requested_dir):
             list_items = []
@@ -217,7 +221,9 @@ async def start(
     default_folder: str = ".",
     use_ssl: bool = False,
     certfile: str = "cert.pem",
-    keyfile: str = "key.pem"
+    keyfile: str = "key.pem",
+    disable_logging: Optional[bool] = False,
+    disable_vlogging: Optional[bool] = False,
 ):
     global _default_folder
 
@@ -239,7 +245,7 @@ async def start(
 
     app = web.Application()
 
-    _default_folder = default_folder
+    _default_folder = os.path.realpath(default_folder)
 
     app.router.add_route(
         "*",
@@ -266,6 +272,8 @@ async def start(
         runner,
         host,
         port,
+        disable_vlogging,
+        disable_logging,
         ssl_context=ssl_context
     )
 

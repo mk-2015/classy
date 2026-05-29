@@ -13,7 +13,7 @@ async def get_session(
     session = _session_cache.get(cache_key)
 
     if session is None or session.closed or getattr(session, 'loop', None) is None or session.loop.is_closed():
-        ssl_context = False
+        ssl_context = None
         if use_ssl:
             ssl_context = ssl.create_default_context()
             if keyfile and certfile:

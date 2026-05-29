@@ -1,2 +1,0 @@
-database.txt:testing.py database example file
-USER=alice, MODELNO=1, model=Name='Alice' Birth='1990-01-01' Age=30 Email='alice@example.com'

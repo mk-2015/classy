@@ -58,31 +58,13 @@ class Db:
         retexpt: bool = False
     ) -> Any:
         raw_params = params or ()
+        if not isinstance(sql_string, str):
+            raise TypeError("sql_string must be a string.")
+
         sql_string, normalized_params = self._normalize_query(sql_string, raw_params)
 
-        if self.etype == "sqlite":
-            try:
-                cursor = await self.pool.execute(sql_string, normalized_params)
-                
-                if autocommit:
-                    await self.pool.commit()
-
-                if cursor.description:
-                    result = await cursor.fetchall() if fetch_all else await cursor.fetchone()
-                    await cursor.close()
-                    return result
-                
-                await cursor.close()
-                return None
-            except Exception as exception:
-                if rollback:
-                    try:
-                        await self.pool.rollback()
-                    except Exception as rb_err:
-                        print(f"SQLite Rollback failed: {rb_err}")
-                if retexpt:
-                    return exception
-                raise exception
+        if not isinstance(raw_params, (tuple, list)):
+            raise TypeError("params must be a tuple or list.")
             
         elif self.etype == "postgres":
             async with self.pool.acquire() as conn:
@@ -131,7 +113,7 @@ class Db:
                             return exception
                         raise exception
 
-    async def query_amrq(
+    async def query_armq(
         self,
         queries: Dict[str, Union[str, Tuple[str], Tuple[str, Union[tuple, list]]]],
         fetch_all: bool = True,
