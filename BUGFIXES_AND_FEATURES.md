@@ -1,5 +1,6 @@
-Bug Fixes:
-1. Fixed bug in @schema.py.
+# Bug Fixes:
+- none
   
-Features:
-None
+# Features:
+1. Added pyotp to betterauth suite
+2. Adding authlib integration (WIP)

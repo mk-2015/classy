@@ -4,3 +4,5 @@ aiomysql
 aiosqlite
 colorama
 pydantic
+authlib
+pyotp

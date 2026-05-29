@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
-Name: python-classy
-Version: 1.4.0
+Name: firepy-aioclassy
+Version: 1.5.0
 Summary: A high-performance, functional asynchronous networking framework.
 Author-email: mk-2015 <sxcyber17+firepy@gmail.com>
 License-Expression: GPL-3.0-or-later
@@ -13,11 +13,20 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.9.0
-Requires-Dist: asyncpg>=0.29.0
-Requires-Dist: aiomysql>=0.2.0
 Requires-Dist: aiosqlite>=0.19.0
 Requires-Dist: colorama>=0.4.6
 Requires-Dist: pydantic>=2.13.4
+Provides-Extra: postgres
+Requires-Dist: asyncpg>=0.29.0; extra == "postgres"
+Provides-Extra: mysql
+Requires-Dist: aiomysql>=0.2.0; extra == "mysql"
+Provides-Extra: betterauth
+Requires-Dist: pyotp>=2.9.0; extra == "betterauth"
+Requires-Dist: authlib>=1.7.2; extra == "betterauth"
+Provides-Extra: all
+Requires-Dist: firepy-aioclassy[postgres]; extra == "all"
+Requires-Dist: firepy-aioclassy[mysql]; extra == "all"
+Requires-Dist: firepy-aioclassy[betterauth]; extra == "all"
 Dynamic: license-file
 
 # classy

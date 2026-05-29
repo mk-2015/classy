@@ -11,8 +11,8 @@ classy/rate.py
 classy/schema.py
 classy/server.py
 classy/vcatch.py
-python_classy.egg-info/PKG-INFO
-python_classy.egg-info/SOURCES.txt
-python_classy.egg-info/dependency_links.txt
-python_classy.egg-info/requires.txt
-python_classy.egg-info/top_level.txt
+firepy_aioclassy.egg-info/PKG-INFO
+firepy_aioclassy.egg-info/SOURCES.txt
+firepy_aioclassy.egg-info/dependency_links.txt
+firepy_aioclassy.egg-info/requires.txt
+firepy_aioclassy.egg-info/top_level.txt

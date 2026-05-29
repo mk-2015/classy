@@ -2,9 +2,12 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["classy"]
+
 [project]
-name = "python-classy" 
-version = "1.4.0"
+name = "firepy-aioclassy"
+version = "1.5.0"
 description = "A high-performance, functional asynchronous networking framework."
 authors = [{ name="mk-2015", email="sxcyber17+firepy@gmail.com" }]
 readme = "README.md"
@@ -19,11 +22,19 @@ classifiers = [
 
 dependencies = [
     "aiohttp>=3.9.0",
-    "asyncpg>=0.29.0",
-    "aiomysql>=0.2.0",
     "aiosqlite>=0.19.0",
     "colorama>=0.4.6",
     "pydantic>=2.13.4"
+]
+
+[project.optional-dependencies]
+postgres = ["asyncpg>=0.29.0"]
+mysql = ["aiomysql>=0.2.0"]
+betterauth = ["pyotp>=2.9.0", "authlib>=1.7.2"]
+all = [
+    "firepy-aioclassy[postgres]",
+    "firepy-aioclassy[mysql]",
+    "firepy-aioclassy[betterauth]"
 ]
 
 [project.urls]
