@@ -238,6 +238,40 @@ id = extend(WebApiProvider())
 run(id).func()
 ```
 
+## Middleware
+* Middleware runs before your route handlers, perfect for logging, authentication, rate limiting, or modifying requests
+* Register middleware using the `use()` function:
+
+```python
+from classy import server
+from aiohttp import web
+
+# Define your middleware
+async def logging_middleware(request, next_layer):
+    print(f"Request: {request.method} {request.path}")
+    result = await next_layer()  # Call the next middleware or route handler
+    print(f"Response status: {result.status}")
+    return result
+
+async def auth_middleware(request, next_layer):
+    # Check auth before proceeding
+    token = request.headers.get('Authorization')
+    if not token:
+        return web.Response(text="Unauthorized", status=401)
+    
+    return await next_layer()  # Pass to next middleware
+
+# Register them in order
+server.use(logging_middleware)
+server.use(auth_middleware)
+
+@server.endpoint_GET("/api/secure-data")
+async def get_secure_data(request):
+    return web.json_response({"data": "secret stuff"})
+
+asyncio.run(server.start())
+```
+
 ## Rate limiter
 
 * The ratelimiter uses 'Cost Based Token Bucket RateLimiter' Method
