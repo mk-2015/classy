@@ -7,11 +7,11 @@ packages = ["classy"]
 
 [project]
 name = "firepy-aioclassy"
-version = "1.5.0"
+version = "1.6.0"
 description = "A high-performance, functional asynchronous networking framework."
 authors = [{ name="mk-2015", email="sxcyber17+firepy@gmail.com" }]
 readme = "README.md"
-requires-python = ">=3.8"  
+requires-python = ">=3.10"  
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 classifiers = [

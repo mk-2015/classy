@@ -2,8 +2,10 @@ import uuid
 from typing import Any, Callable, Dict, List, Optional, Type
 from classy.logger import log
 from aiohttp import web
+from abc import ABC, abstractmethod
+import inspect
 
-class Provider:
+class Provider(ABC):
     def __init__(self, name: str, proc: List[Dict[str, bool]]):
         if getattr(self, "_initialized", False):
             raise PermissionError("Illegal Operation: Cannot re-initialize a running Provider.")
@@ -33,9 +35,9 @@ class Provider:
         return response
 
     def __getattribute__(self, name: str) -> Any:
-        attr = object.__getattribute__(self, name)
+        attrib = object.__getattribute__(self, name)
 
-        if callable(attr) and not name.startswith("_"):
+        if callable(attrib) and not name.startswith("_"):
             proc_func_name = f"__proc_{name}"
             
             try:
@@ -51,8 +53,14 @@ class Provider:
                         if req.get("requires_network") and not self.perms["network"]:
                             raise PermissionError(f"Access Denied: Missing 'network' permission for {name}")
 
-                    return attr(*args, **kwargs)
-
+                    ret = attrib(*args, **kwargs)
+                    
+                    if inspect.iscoroutine(ret):
+                        async def async_delegate():
+                            return await ret
+                        return async_delegate()
+                    
+                    return ret
                 return secure_wrapper
 
             except AttributeError:
@@ -62,17 +70,34 @@ class Provider:
 
         return attr
 
+    async def __boot_(self) -> dict:
+        print(f"Booting provider: {self.name}")
+        ret = await __boot(self.name)
+        
+        if type(ret) != dict:
+            return {"error": "Invalid error datatype"}
+        
+        return ret.get("errors", ret)
+        
+    @abstractmethod
+    async def __boot(self, name):
+        return {"errors": "Not implemented"}
+
 _REGISTRY: Dict[str, Any] = {}
 
-def extend(plugin_instance: Any, custom_id: Optional[str] = None, log: Optional[bool] = True) -> str:
+async def extend(plugin_instance: Any, custom_id: Optional[str] = None, logged: Optional[bool] = True) -> str:
 
     if not plugin_instance:
         raise ValueError("Invalid plugin instance.")
 
     plugin_id = custom_id or f"plug_{uuid.uuid4().hex[:12]}"
-    
     _REGISTRY[plugin_id] = plugin_instance
-    if log:
+    boot_status = await _REGISTRY[plugin_id].__boot_()
+    
+    if boot_status in [{"errors": "Not implemented"}, {"error": "Invalid error datatype"}]:
+        raise RuntimeError("Cannot boot Provider. If you are the developer of this Provider check the __boot function")
+        
+    if logged:
         log(f"Successfully loaded plugin: {getattr(plugin_instance, 'name', type(plugin_instance).__name__)} [{plugin_id}]", level="INFO")
     return plugin_id
 

@@ -1,8 +1,9 @@
+import time
 import inspect
 import hashlib
 import secrets
 from functools import wraps
-from typing import Callable, Any, Optional, Union, List
+from typing import Callable, Any, Optional, Union, List, Dict
 from aiohttp import web
 from .logger import log
 
@@ -76,4 +77,27 @@ def verifytoken(base32secret: str, usersent: str) -> Optional[Union[bool, List]]
         return None
     except Exception as e:
         log(f"Encountered exception: {type(e).__name__}, Please check if totptoken secret is correct.", level="ERROR")
+        return [e, type(e).__name__]
+        
+def issueJWTToken(user_id: str, secret_key: str, expires_in: int = 3600, issuer="fireauth") -> Optional[Union[str, List]]:
+    try:
+        from authlib.jose import jwt
+        
+        header = {"alg": "HS256", "typ": "JWT"}
+        
+        payload = {
+            "iss": issuer,
+            "sub": user_id,
+            "iat": int(time.time()),
+            "exp": int(time.time()) + expires_in
+        }
+        
+        token = jwt.encode(header, payload, secret_key)
+        return token.decode("utf-8")
+
+    except ImportError:
+        log("authlib is not installed, please install the [betterauth] suite!", level="ERROR")
+        return None
+    except Exception as e:
+        log(f"Encountered exception during JWT generation: {type(e).__name__}", level="ERROR")
         return [e, type(e).__name__]
