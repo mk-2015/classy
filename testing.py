@@ -1,6 +1,8 @@
 from classy.server import endpoint_GET, endpoint_POST, start  
 from classy.rate import rate_limit
 from classy.schema import Schema, validate_schema
+from classy.provider import Provider, run, extend
+from memplugin import MemoryCache
 from aiohttp import web
 import asyncio
 from typing import Callable, Optional
@@ -66,7 +68,31 @@ async def postage(request: web.Request, *args, **kwargs):
             "Message": f"user: {user}, created model: {modelNo}"
         }
     }, status=201)
-        
 
+MemoryCacheProvider = MemoryCache()
+Memid = extend(MemoryCacheProvider)
+
+@endpoint_GET("/test/cache/set/{key:str}/{value:str}")
+async def cache_set_endpoint(request: web.Request, *args, **kwargs):
+    key = kwargs['key'] 
+    value = kwargs['value'] 
+
+    result = run(Memid).cache_set(key, value)
+    return web.json_response({"result": result})
+
+@endpoint_GET("/test/cache/get/{key:str}")
+async def cache_get_endpoint(request: web.Request, *args, **kwargs):
+    key = kwargs['key'] 
+
+    value = run(Memid).cache_get(key)
+    return web.json_response({"value": value})
+
+@endpoint_POST("/test/cache/clear")
+async def cache_clear_endpoint(request: web.Request):
+    if request.headers.get("AuthToken"):
+        return web.json_response({"error": "Forbidden: Authentication faliure"}, status=403)
+
+    result = run(Memid).cache_clear()
+    return web.json_response({"result": result})
 
 asyncio.run(start(default_folder="."))

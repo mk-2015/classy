@@ -93,7 +93,20 @@ def issueJWTToken(user_id: str, secret_key: str, expires_in: int = 3600, issuer=
         }
         
         token = jwt.encode(header, payload, secret_key)
-        return token.decode("utf-8")
+        return token
+
+    except ImportError:
+        log("authlib is not installed, please install the [betterauth] suite!", level="ERROR")
+        return None
+    except Exception as e:
+        log(f"Encountered exception during JWT generation: {type(e).__name__}", level="ERROR")
+        return [e, type(e).__name__]
+
+def decodeJWTToken(public_key: str, token):
+    try:
+        from authlib.jose import jwt
+
+        return jwt.decode(token, public_key)
 
     except ImportError:
         log("authlib is not installed, please install the [betterauth] suite!", level="ERROR")
