@@ -112,6 +112,36 @@ class Db:
                         if retexpt:
                             return exception
                         raise exception
+        elif self.etype == "sqlite":
+            async with aiosqlite.connect(self.connection_string) as conn:
+                conn.row_factory = aiosqlite.Row 
+                
+                async with conn.cursor() as cursor:
+                    try:
+                        exec_params = normalized_params if normalized_params else ()
+                        await cursor.execute(sql_string, exec_params)
+                        
+                        if autocommit:
+                            await conn.commit()
+                            
+                        if cursor.description:
+                            rows = await cursor.fetchall() if fetch_all else [await cursor.fetchone()]
+                            if fetch_all:
+                                result = [dict(row) for row in rows if row is not None]
+                            else:
+                                result = dict(rows[0]) if rows[0] is not None else None
+                                
+                            return result
+                        return None
+                    except Exception as exception:
+                        if rollback:
+                            try:
+                                await conn.rollback()
+                            except Exception as rb_err:
+                                print(f"SQLite Rollback failed: {rb_err}")
+                        if retexpt:
+                            return exception
+                        raise exception
 
     async def query_armq(
         self,
